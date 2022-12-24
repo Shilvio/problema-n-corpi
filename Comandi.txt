@@ -1,0 +1,6 @@
+aggiungi cose
+    git add nomefile nomefile2                      
+    git commit -m "commento"
+
+ricevi cose
+    git pull
