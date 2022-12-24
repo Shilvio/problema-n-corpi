@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 
@@ -12,7 +12,6 @@ struct particle{
 }particle;
 
 void compute(int T){
-    
     for(int i=0; i<T; i++){
         printf("ciao\n");
     }
