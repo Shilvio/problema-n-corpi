@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <math.h>
 
+int numberN_corpi =5;
+
 
 
 struct particle{
@@ -17,7 +19,15 @@ void compute(int T){
     }
 }
 
+void getInput(){
+    FILE* file=fopen("../../Generate/particle.txt","r");
+    int seed;
+    fscanf(file,"%d",&seed);
+    printf("%d\n",seed);
+}
+
 int main(){
     int T=3;
-    compute(T);
+    getInput();
+    //compute(T);
 }
