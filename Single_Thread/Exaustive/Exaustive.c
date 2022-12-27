@@ -1,13 +1,9 @@
 #include <stdio.h>
 #include <math.h>
 
-int numberN_corpi =5;
-
-
-
-struct particle{
-    float y;
+typedef struct particle{
     float x;
+    float y;
     float mass;
     float vel_x;
     float vel_y;
@@ -24,6 +20,18 @@ void getInput(){
     int seed;
     fscanf(file,"%d",&seed);
     printf("%d\n",seed);
+    int numberBody;
+    fscanf(file,"%d",&numberBody);
+    printf("%d\n",numberBody);
+    char temp[10];
+    particle particles[numberBody];
+    //for numberBody
+    particle p;
+    fscanf(file,"%s%f%s%f%s%f%s%f%s%f",&temp,&p.x,&temp,&p.y,&temp,&p.mass,&temp,&p.vel_x,&temp,&p.vel_y);
+    particles[0]=p;
+    fscanf(file,"%s%f%s%f%s%f%s%f%s%f",&temp,&p.x,&temp,&p.y,&temp,&p.mass,&temp,&p.vel_x,&temp,&p.vel_y);
+    particles[1]=p;
+    printf("particle %f, %f, %f, %f, %f",particles[0].x,p.y,p.mass,p.vel_x,p.vel_y);
 }
 
 int main(){
