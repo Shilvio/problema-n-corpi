@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <math.h>
 
+int numberBody;
+
 typedef struct particle{
     float x;
     float y;
@@ -15,27 +17,32 @@ void compute(int T){
     }
 }
 
-void getInput(){
+particle* getInput(){
     FILE* file=fopen("../../Generate/particle.txt","r");
     int seed;
+    //prendo e stampo il seed
     fscanf(file,"%d",&seed);
     printf("%d\n",seed);
-    int numberBody;
+    ////prendo e stampo il numero di corpi
     fscanf(file,"%d",&numberBody);
     printf("%d\n",numberBody);
     char temp[10];
     particle particles[numberBody];
     //for numberBody
-    particle p;
-    fscanf(file,"%s%f%s%f%s%f%s%f%s%f",&temp,&p.x,&temp,&p.y,&temp,&p.mass,&temp,&p.vel_x,&temp,&p.vel_y);
-    particles[0]=p;
-    fscanf(file,"%s%f%s%f%s%f%s%f%s%f",&temp,&p.x,&temp,&p.y,&temp,&p.mass,&temp,&p.vel_x,&temp,&p.vel_y);
-    particles[1]=p;
-    printf("particle %f, %f, %f, %f, %f",particles[0].x,p.y,p.mass,p.vel_x,p.vel_y);
+    for(int i=0;i<numberBody;i++){
+        fscanf(file,"%f%f%f%f%f",&particles[i].x,&particles[i].y,&particles[i].mass,&particles[i].vel_x,&particles[i].vel_y);
+        printf("particle %f, %f, %f, %f, %f\n",particles[i].x,particles[i].y,particles[i].mass,particles[i].vel_x,particles[i].vel_y);
+    }
+    fclose(file);
+    return particles;
 }
 
 int main(){
     int T=3;
-    getInput();
+    particle* p1=getInput();
+    printf("\n");
+    for(int i=0;i<numberBody;i++){
+        printf("particle %f, %f, %f, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].vel_x,p1[i].vel_y);
+    }
     //compute(T);
 }
