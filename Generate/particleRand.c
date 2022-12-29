@@ -12,7 +12,7 @@ int main(){
     srand(seed);
     fprintf(file,"%d %d\n",seed,NUMBER_BODY);
     for(int i=0;i<NUMBER_BODY;i++)
-        fprintf(file,"%f %f %f %f %f\n",(float)rand()/((float)RAND_MAX/dim),(float)rand()/((float)RAND_MAX/dim),\
-        (float)rand()/((float)RAND_MAX/mass),(float)rand()/((float)RAND_MAX/force),(float)rand()/((float)RAND_MAX/force));
+        fprintf(file,"%f %f %f %f %f\n",rand()/(RAND_MAX/dim),rand()/(RAND_MAX/dim),\
+        rand()/(RAND_MAX/mass),rand()/(RAND_MAX/force),rand()/(RAND_MAX/force));
     return 0;
 }
