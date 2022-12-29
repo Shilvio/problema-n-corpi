@@ -17,6 +17,7 @@ typedef struct particle{
     double velY;
 }particle;
 
+//calcolo del cambio della posizione per una particella di interesse per un dato intervallo di tempo
 void calculatePosition(particle* p,int time){
     p->x+=time*p->velX;
     p->y+=time*p->velY;
@@ -24,11 +25,14 @@ void calculatePosition(particle* p,int time){
     p->velY+=time/p->mass*p->forceY;
 }
 
+//calcolo tutte le forze relative ad una particella di interesse
 void calculateTotalForce(particle* p1,int j){
+    //itero per tutte le particelle tranne quella di interesse
     for(int i=0; i<numberBody;i++){
         if (i==j){
             continue;
         }
+        //calcolo delle forze
         double xDiff=p1[j].x-p1[i].x;
         double yDiff=p1[j].y-p1[i].y;
         double dist=sqrt(xDiff*xDiff+yDiff*yDiff);
@@ -44,49 +48,62 @@ void stampa(particle* p1){
     }
 }
 
-// da finire
+//calcolo il movimento delle particelle nel tempo richiesto
 void compute(int time,particle* p1){
+    //itero per il tempo tichiesto
     for(int i=0; i<time; i++){
+        //itero per ogni corpo
         for(int j=0;j<numberBody;j++){
+            //calcolo tutte le forze relative ad una particella di interesse
             calculateTotalForce(p1,j);
         }
+        //itero per ogni corpo
         for(int j=0;j<numberBody;j++){
+            //calcolo del cambio della posizione per una particella di interesse
             calculatePosition(&p1[j],1);
         }
     }
 }
 
-//riempo l'array con le particelle nel file
+//popolo l'array con le particelle nel file
 void getInput(FILE* file,particle* p1){
-    //for numberBody
+    //prendo i dati per tutti i corpi
     for(int i=0;i<numberBody;i++){
+        //prendo i dati dal file
         fscanf(file,"%lf%lf%lf%lf%lf",&p1[i].x,&p1[i].y,&p1[i].mass,&p1[i].velX,&p1[i].velY);
+        //imposto le forze iniziali a zero
         p1[i].forceX=0;
         p1[i].forceY=0;
-        printf("particle %f, %f, %f, %f, %f, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
+        printf("particle %f, %f, %f, %e, %e, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
     }
+    //chiudo il file
     fclose(file);
 }
 
+//aprire il file e prendere i primi valori (seed e numero di corpi)
 FILE* initial(){
+    //mi apro il file in lettura
     FILE* file=fopen(fileInput,"r");
-    //prendo e stampo il seed
+    //prendo il seed
     fscanf(file,"%d",&seed);
-    printf("%d\n",seed);
-    //prendo e stampo il numero di corpi
+                                                                        printf("%d\n",seed);
+    //prendo il numero di corpi
     fscanf(file,"%d",&numberBody);
-    printf("%d\n",numberBody);
+                                                                        printf("%d\n",numberBody);
     return file;
 }
 
 int main(){
+    //apro il file dove si trovano tutte le particelle
     FILE* file=initial();
-    //array che contiene tutte le particelle (p1)
+    //alloco la memoria per l'array che contierrà tutte le particelle (p1)
     particle* p1=malloc(sizeof(particle)*numberBody);
+    //popolo l'array
     getInput(file,p1);
-    printf("\n");
+                                                                    printf("\n");
                                                                     stampa(p1);
+    //calcolo il movimento delle particelle nel tempo richiesto
     compute(maxTime,p1);
-    printf("\n");
+                                                                    printf("\n");
                                                                     stampa(p1);
 }
