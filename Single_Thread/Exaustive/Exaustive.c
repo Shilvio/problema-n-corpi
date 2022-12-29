@@ -14,8 +14,11 @@ typedef struct particle{
     float forceY;
 }particle;
 
-/**/
-void calculateTotalForce(particle p,particle* p1,int j){
+void calculatePositionVel(particle p){
+
+}
+
+void calculateTotalForce(particle* p1,int j){
     for(int i=0; i<numberBody;i++){
         if (i==j){
             continue;
@@ -29,11 +32,17 @@ void calculateTotalForce(particle p,particle* p1,int j){
     }
 }
 
+void stampa(particle* p1){
+    for(int i=0;i<numberBody;i++){
+        printf("particle %f, %f, %f, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY);
+    }
+}
+
 // da finire
 void compute(int time,particle* p1){
     for(int i=0; i<time; i++){
         for(int j=0;j<numberBody;j++){
-            calculateTotalForce(p1[j],p1,j);
+            calculateTotalForce(p1,j);
         }
         for(int j=0;j<numberBody;j++){
             calculatePositionVel(p1[j]);
@@ -67,8 +76,6 @@ int main(){
     particle* p1=malloc(sizeof(particle)*numberBody);
     getInput(file,p1);
     printf("\n");
-    for(int i=0;i<numberBody;i++){
-        printf("particle %f, %f, %f, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY);
-    }
+                                                                    stampa(p1);
     //compute(maxTime,p1);
 }
