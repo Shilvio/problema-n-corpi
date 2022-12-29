@@ -8,13 +8,13 @@ double const G=6.67384E-11;
 
 
 typedef struct particle{
-    float x;
-    float y;
-    float mass;
+    double x;
+    double y;
+    double mass;
     double forceX;
     double forceY;
-    float velX;
-    float velY;
+    double velX;
+    double velY;
 }particle;
 
 void calculatePosition(particle* p,int time){
@@ -29,18 +29,18 @@ void calculateTotalForce(particle* p1,int j){
         if (i==j){
             continue;
         }
-        float xDiff=p1[j].x-p1[i].x;
-        float yDiff=p1[j].y-p1[i].y;
-        float dist=sqrt(xDiff*xDiff+yDiff*yDiff);
-        float cubeDist=dist*dist*dist;
-        p1[j].forceX-=G*(double)p1[j].mass*(double)p1[i].mass/(double)cubeDist*xDiff;
-        p1[j].forceY-=G*(double)p1[j].mass*(double)p1[i].mass/(double)cubeDist*yDiff;
+        double xDiff=p1[j].x-p1[i].x;
+        double yDiff=p1[j].y-p1[i].y;
+        double dist=sqrt(xDiff*xDiff+yDiff*yDiff);
+        double cubeDist=dist*dist*dist;
+        p1[j].forceX-=G*p1[j].mass*p1[i].mass/cubeDist*xDiff;
+        p1[j].forceY-=G*p1[j].mass*p1[i].mass/cubeDist*yDiff;
     }
 }
 
 void stampa(particle* p1){
     for(int i=0;i<numberBody;i++){
-        printf("particle %f, %f, %f, %f, %f, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
+        printf("particle %f, %f, %f, %e, %e, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
     }
 }
 
@@ -60,10 +60,10 @@ void compute(int time,particle* p1){
 void getInput(FILE* file,particle* p1){
     //for numberBody
     for(int i=0;i<numberBody;i++){
-        fscanf(file,"%f%f%f%f%f",&p1[i].x,&p1[i].y,&p1[i].mass,&p1[i].velX,&p1[i].velY);
+        fscanf(file,"%lf%lf%lf%lf%lf",&p1[i].x,&p1[i].y,&p1[i].mass,&p1[i].velX,&p1[i].velY);
         p1[i].forceX=0;
         p1[i].forceY=0;
-        printf("particle %.2f, %f, %f, %f, %f, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
+        printf("particle %f, %f, %f, %f, %f, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
     }
     fclose(file);
 }
@@ -84,9 +84,9 @@ int main(){
     //array che contiene tutte le particelle (p1)
     particle* p1=malloc(sizeof(particle)*numberBody);
     getInput(file,p1);
-    /*printf("\n");
+    printf("\n");
                                                                     stampa(p1);
     compute(maxTime,p1);
     printf("\n");
-                                                                    stampa(p1);*/
+                                                                    stampa(p1);
 }
