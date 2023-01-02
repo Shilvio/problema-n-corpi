@@ -44,7 +44,7 @@ void calculateTotalForce(particle* p1,int j){
 
 void stampa(particle* p1){
     for(int i=0;i<numberBody;i++){
-        printf("particle %f, %f, %f, %e, %e, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
+        printf("particle %e, %e, %e, %e, %e, %e, %e\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
     }
 }
 
@@ -60,7 +60,7 @@ void compute(int time,particle* p1){
         //itero per ogni corpo
         for(int j=0;j<numberBody;j++){
             //calcolo del cambio della posizione per una particella di interesse
-            calculatePosition(&p1[j],1);
+            calculatePosition(&p1[j],100);
         }
     }
 }
@@ -74,7 +74,7 @@ void getInput(FILE* file,particle* p1){
         //imposto le forze iniziali a zero
         p1[i].forceX=0;
         p1[i].forceY=0;
-        printf("particle %f, %f, %f, %e, %e, %f, %f\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
+        printf("particle %e, %e, %e, %e, %e, %e, %e\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
     }
     //chiudo il file
     fclose(file);

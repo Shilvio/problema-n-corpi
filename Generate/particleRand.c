@@ -3,8 +3,8 @@
 #include <math.h>
 int const NUMBER_BODY = 4;
 float const dim=100;
-float const mass=100;
-float const vel=200;
+float const mass=500000000000000000;
+float const vel=10;
 unsigned int const seed=0;
 
 int main(){
