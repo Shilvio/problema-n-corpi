@@ -105,14 +105,13 @@ int insert(particle* p,quadTree* t){
         if(!t->div){
             
             divide(t);
-            if(insert(t->p,t->nw))
-                return 1;
-            if(insert(t->p,t->ne))
-                return 1;
-            if(insert(t->p,t->sw))
-                return 1;
-            if(insert(t->p,t->se))
-                return 1;
+            if(!insert(t->p,t->nw)){
+                if(!insert(t->p,t->ne)){
+                    if(!insert(t->p,t->sw)){
+                        insert(t->p,t->se);
+                    }
+                }
+            }
         }
 
         if(insert(p,t->nw))
@@ -136,41 +135,48 @@ void buildquadTree(particle* p1,quadTree* t){
 }
 
 void printer(quadTree* t,int i){
-    i=0;
     if(t->p==NULL){
+        for(int j=0;j<i;j++){
+        printf("     ");
+        }
+        printf("vuoto\n");
         return;
     }
     /*if(i>5){
         return;
     }*/
     for(int j=0;j<i;j++){
-        printf("\t");
+        printf("     ");
     }
-    printf("id=%s ",t->id);
+    printf("id=%s\n",t->id);
+    i+=1;
     if(t->div){
         for(int j=0;j<i;j++){
-            printf("\t");
+            printf("     ");
         }
         printf("ne\n");
         printer(t->ne,i+1);
         for(int j=0;j<i;j++){
-            printf("\t");
+            printf("     ");
         }
         printf("se\n");
         printer(t->se,i+1);
         for(int j=0;j<i;j++){
-            printf("\t");
+            printf("     ");
         }
         printf("sw\n");
         printer(t->sw,i+1);
         for(int j=0;j<i;j++){
-            printf("\t");
+            printf("     ");
         }
         printf("nw\n");
         printer(t->nw,i+1);
 
     }else{
-        printf(" pX %f pY %f ",t->p->x,t->p->y);
+        for(int j=0;j<i;j++){
+        printf("     ");
+     }
+        printf(" pX %f pY %f\n",t->p->x,t->p->y);
     }
     return;
 }
@@ -185,20 +191,21 @@ int main(){
     c->x=0;
     c->y=0;
     c->s=20;
-    c->id[0]="1";
+    c->id[0]='1';
+    c->id[1]='\0';
     c->div=false;
     c->p=NULL;
     c->ne=NULL;
     c->se=NULL;
     c->nw=NULL;
     c->sw=NULL;
-    
+    particle* d=(particle*)malloc(sizeof(particle));
     insert(p,c);
                                                                         //printf("ciao");
-    printer(c,0);
-    p->x=0.2;
-    p->y=0.2;
-    insert(p,c);
+    //printer(c,0);
+    d->x=-0.2;
+    d->y=-0.2;
+    insert(d,c);
                                                                         //printf("ciao");
     printer(c,0);
     return 0;
