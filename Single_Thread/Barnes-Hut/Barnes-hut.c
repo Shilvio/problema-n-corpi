@@ -19,7 +19,7 @@ typedef struct particle{
 }particle;
 
 typedef struct quadTree{
-    char* id;
+    char id[20];
     double x;
     double y;
     double s; //dimensione
@@ -41,7 +41,7 @@ bool contains(quadTree* t, particle* p){
 }
 
 struct quadTree* newNode(double s,double x, double y,char* idF,char* son){
-    printf("ciao");
+    
     quadTree* t = (quadTree*) malloc(sizeof(quadTree));
     
     if(t==NULL){
@@ -62,7 +62,7 @@ struct quadTree* newNode(double s,double x, double y,char* idF,char* son){
     t->se=NULL;
     t->nw=NULL;
     t->sw=NULL;
-    
+
     return t;
 }
 
@@ -77,7 +77,7 @@ void divide(quadTree* t){
                                                                         //printf("quand 4 %f %f %f\n",t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4");
 
     t->ne = newNode(t->s/2, t->x + t->s/4, t->y + t->s/4,t->id,"1"); 
-    printf("ciao");
+    
     t->se = newNode(t->s/2, t->x + t->s/4, t->y - t->s/4,t->id,"2"); 
     
     t->sw = newNode(t->s/2, t->x - t->s/4, t->y - t->s/4,t->id,"3"); 
@@ -91,9 +91,10 @@ void insert(particle* p,quadTree* t){
     if(!contains(t,p)){
         return;
     }
+    
     if(t->p==NULL){
         t->p=p;
-                                                                            //printf("no particle in quadrant");
+                                                                            printf("no particle in quadrant");
         return;
     }
 
@@ -121,7 +122,10 @@ void buildquadTree(particle* p1,quadTree* t){
 }
 
 void printer(quadTree* t,int i){
-    if(t==NULL){
+    if(t->p==NULL){
+        return;
+    }
+    if(i>5){
         return;
     }
     for(int j=0;j<i;j++){
@@ -151,7 +155,7 @@ void printer(quadTree* t,int i){
         printer(t->nw,i+1);
 
     }
-    
+    return;
 }
 
 int main(){
@@ -164,7 +168,7 @@ int main(){
     c->x=0;
     c->y=0;
     c->s=20;
-    c->id="1";
+    c->id[0]="1";
     c->div=false;
     c->p=NULL;
     c->ne=NULL;
@@ -174,11 +178,11 @@ int main(){
     
     insert(p,c);
                                                                         //printf("ciao");
-    printer(c,0);
-    p->x=-4;
-    p->y=-4;
+    //printer(c,0);
+    p->x=2;
+    p->y=2;
     insert(p,c);
                                                                         //printf("ciao");
-    printer(c,0);
-    
+    //printer(c,0);
+    return 0;
 }
