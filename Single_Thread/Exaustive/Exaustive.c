@@ -60,7 +60,7 @@ void compute(int time,particle* p1){
         //itero per ogni corpo
         for(int j=0;j<numberBody;j++){
             //calcolo del cambio della posizione per una particella di interesse
-            calculatePosition(&p1[j],100);
+            calculatePosition(&p1[j],1);
         }
     }
 }
