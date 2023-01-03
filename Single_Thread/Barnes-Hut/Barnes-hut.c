@@ -21,23 +21,24 @@ typedef struct quadTree{
     double x;
     double y;
     double s; //dimensione
-    particle p;
+    particle* p;
     bool div;
     struct quadTree* nw;
-    quadTree* ne;
-    quadTree* sw;
-    quadTree* se;
+    struct quadTree* ne;
+    struct quadTree* sw;
+    struct quadTree* se;
 }quadTree;
 
-bool contains(quadTree* t, particle p){
-        return (p.x < (t->x+t->s/2) &&
-        p.x > (t->x-t->s/2) &&
-        p.y < (t->y+t->s/2) &&
-        p.y > (t->y-t->s/2));
+bool contains(quadTree* t, particle* p){
+        particle temp = *p;
+        return (temp.x < (t->x+t->s/2) &&
+        temp.x > (t->x-t->s/2) &&
+        temp.y < (t->y+t->s/2) &&
+        temp.y > (t->y-t->s/2));
         
 }
 
-quadTree* newNode(double s,double x, double y){
+struct quadTree* newNode(double s,double x, double y){
     quadTree* t = (quadTree*) malloc(sizeof(quadTree));
 
     if(t==NULL){
@@ -53,7 +54,7 @@ quadTree* newNode(double s,double x, double y){
     t->ne=NULL;
     t->se=NULL;
     t->nw=NULL;
-    t->sw=NULL,
+    t->sw=NULL;
     
     return t;
 }
@@ -71,11 +72,10 @@ void divide(quadTree* t){
     t->div = true;
 }
 
-void insert(particle p,quadTree* t){
+void insert(particle* p,quadTree* t){
     if(!contains(t,p)){
         return;
     }
-
     if(t->p==NULL){
         t->p=p;
         return;
@@ -98,8 +98,8 @@ void insert(particle p,quadTree* t){
 
 
 void buildquadTree(particle* p1,quadTree* t){
-    fot(int i=0;i<numberBody;i++){
-        insert(p1[i],t);
+    for(int i=0;i<numberBody;i++){
+        insert(&p1[i],t);
     }
 }
 
