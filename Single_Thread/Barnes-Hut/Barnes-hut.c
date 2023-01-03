@@ -48,6 +48,7 @@ struct quadTree* newNode(double s,double x, double y,char* idF,char* son){
         printf("out of memory");
         exit(1);
     }
+    t->id[0]='\0';
     strcat(t->id,idF);
     strcat(t->id,":");
     strcat(t->id,son);
