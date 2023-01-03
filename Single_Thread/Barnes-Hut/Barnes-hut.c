@@ -32,10 +32,10 @@ typedef struct quadTree{
 }quadTree;
 
 bool contains(quadTree* t, particle* p){
-                                                                        //printf("x %f, y %f",p->x,p->y);
-        return (p->x < (t->x+t->s/2) &&
+                                                                        //printf("x %f, y %f",t->x,t->y);
+        return (p->x <= (t->x+t->s/2) &&
         p->x > (t->x-t->s/2) &&
-        p->y < (t->y+t->s/2) &&
+        p->y <= (t->y+t->s/2) &&
         p->y > (t->y-t->s/2));
         
 }
@@ -85,33 +85,47 @@ void divide(quadTree* t){
     t->nw = newNode(t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4"); 
     
     t->div = true;
+
+    return;
 }
 
-void insert(particle* p,quadTree* t){
+int insert(particle* p,quadTree* t){
     if(!contains(t,p)){
-        return;
+        return 0;
     }
+
+                                                                            //printf("ciao");
     
     if(t->p==NULL){
         t->p=p;
-                                                                            printf("no particle in quadrant");
-        return;
-    }
+                                                                            //printf("no particle in quadrant");
+        return 1;
+    }else{
 
-    if(!t->div){
-        
-        divide(t);
-        insert(t->p,t->nw);
-        insert(t->p,t->ne);
-        insert(t->p,t->sw);
-        insert(t->p,t->se);
-    }
+        if(!t->div){
+            
+            divide(t);
+            if(insert(t->p,t->nw))
+                return 1;
+            if(insert(t->p,t->ne))
+                return 1;
+            if(insert(t->p,t->sw))
+                return 1;
+            if(insert(t->p,t->se))
+                return 1;
+        }
 
-    insert(p,t->nw);
-    insert(p,t->ne);
-    insert(p,t->sw);
-    insert(p,t->se);
-    return;
+        if(insert(p,t->nw))
+            return 1;
+        if(insert(p,t->ne))
+            return 1;
+        if(insert(p,t->sw))
+            return 1;
+        if(insert(p,t->se))
+            return 1;
+
+    }
+    return 0;
 }
 
 
@@ -122,12 +136,13 @@ void buildquadTree(particle* p1,quadTree* t){
 }
 
 void printer(quadTree* t,int i){
+    i=0;
     if(t->p==NULL){
         return;
     }
-    if(i>5){
+    /*if(i>5){
         return;
-    }
+    }*/
     for(int j=0;j<i;j++){
         printf("\t");
     }
@@ -154,6 +169,8 @@ void printer(quadTree* t,int i){
         printf("nw\n");
         printer(t->nw,i+1);
 
+    }else{
+        printf(" pX %f pY %f ",t->p->x,t->p->y);
     }
     return;
 }
@@ -162,8 +179,8 @@ int main(){
     quadTree* c=(quadTree*)malloc(sizeof(quadTree));
     particle* p=(particle*)malloc(sizeof(particle));
     
-    p->x=4;
-    p->y=4;
+    p->x=4.3;
+    p->y=4.3;
     
     c->x=0;
     c->y=0;
@@ -178,11 +195,11 @@ int main(){
     
     insert(p,c);
                                                                         //printf("ciao");
-    //printer(c,0);
-    p->x=2;
-    p->y=2;
+    printer(c,0);
+    p->x=0.2;
+    p->y=0.2;
     insert(p,c);
                                                                         //printf("ciao");
-    //printer(c,0);
+    printer(c,0);
     return 0;
 }
