@@ -9,41 +9,51 @@ char fileInput[]="../../Generate/particle.txt";
 double const G=6.67384E-11;
 
 typedef struct particle{
-    double x;
-    double y;
-    double mass;
-    double forceX;
-    double forceY;
-    double velX;
-    double velY;
+    double x; // oszione x della particella
+    double y; // posizione y della particella
+    double mass; // massa della particella
+    double forceX; // forza applicata alla particella sull' asse x
+    double forceY; // forza applicata alla particella sull' asse y
+    double velX; //  velocità della paarticella a un dato momento sull' asse x
+    double velY; // velocità della paarticella a un dato momento sull' asse y
 }particle;
 
 typedef struct quadTree{
     char id[20];
-    double x;
-    double y;
-    double s; //dimensione
-    particle* p;
-    bool div;
-    struct quadTree* nw;
-    struct quadTree* ne;
-    struct quadTree* sw;
-    struct quadTree* se;
+    double x;   //x del centro dell' albero
+    double y;   // y del centro del' albero
+    double s;   //dimensione
+    particle* p; //puntatore a una particella
+    bool div; // check della divisione dell' albero
+    struct quadTree* nw; // ramo nord ovest dell' albero guardando la suddivisione del quandrante
+    struct quadTree* ne; // ramo nord est dell' albero guardando la suddivisione del quandrante
+    struct quadTree* sw; // ramo sud ovest dell' albero guardando la suddivisione del quandrante
+    struct quadTree* se; // ramo sud est dell' albero guardando la suddivisione del quandrante
+    //    _________________________
+    //   |            |            |
+    //   |    (NW)    |    (NE)    |
+    //   |            |            |
+    //   |     -+     |     ++     |
+    //   |____________|____________|
+    //   |            |            |
+    //   |     --     |     +-     |
+    //   |            |            |
+    //   |    (SW)    |    (SE)    |
+    //   |____________|____________|
 }quadTree;
+
+
 
 bool contains(quadTree* t, particle* p){
                                                                         //printf("x %f, y %f",t->x,t->y);
         return (p->x <= (t->x+t->s/2) &&
         p->x > (t->x-t->s/2) &&
         p->y <= (t->y+t->s/2) &&
-        p->y > (t->y-t->s/2));
-        
+        p->y > (t->y-t->s/2));       
 }
 
-struct quadTree* newNode(double s,double x, double y,char* idF,char* son){
-    
-    quadTree* t = (quadTree*) malloc(sizeof(quadTree));
-    
+struct quadTree* newNode(double s,double x, double y,char* idF,char* son){  
+    quadTree* t = (quadTree*) malloc(sizeof(quadTree)); 
     if(t==NULL){
         printf("out of memory");
         exit(1);
@@ -68,7 +78,6 @@ struct quadTree* newNode(double s,double x, double y,char* idF,char* son){
 }
 
 void divide(quadTree* t){
-    
     if(t->div){
         return;
     }
@@ -76,56 +85,38 @@ void divide(quadTree* t){
                                                                         //printf("quand 2 %f %f %f\n",t->s/2, t->x + t->s/4, t->y - t->s/4,t->id,"2");
                                                                         //printf("quand 3 %f %f %f\n",t->s/2, t->x - t->s/4, t->y - t->s/4,t->id,"3");
                                                                         //printf("quand 4 %f %f %f\n",t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4");
-
-    t->ne = newNode(t->s/2, t->x + t->s/4, t->y + t->s/4,t->id,"1"); 
-    
-    t->se = newNode(t->s/2, t->x + t->s/4, t->y - t->s/4,t->id,"2"); 
-    
-    t->sw = newNode(t->s/2, t->x - t->s/4, t->y - t->s/4,t->id,"3"); 
-    
-    t->nw = newNode(t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4"); 
-    
+    t->ne = newNode(t->s/2, t->x + t->s/4, t->y + t->s/4,t->id,"1");    
+    t->se = newNode(t->s/2, t->x + t->s/4, t->y - t->s/4,t->id,"2");   
+    t->sw = newNode(t->s/2, t->x - t->s/4, t->y - t->s/4,t->id,"3");  
+    t->nw = newNode(t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4");    
     t->div = true;
-
     return;
 }
 
-int insert(particle* p,quadTree* t){
+void insert(particle* p,quadTree* t){
     if(!contains(t,p)){
-        return 0;
+        return;
     }
-
-                                                                            //printf("ciao");
-    
+                                                                            //printf("ciao");   
     if(t->p==NULL){
         t->p=p;
                                                                             //printf("no particle in quadrant");
-        return 1;
-    }else{
-
-        if(!t->div){
-            
-            divide(t);
-            if(!insert(t->p,t->nw)){
-                if(!insert(t->p,t->ne)){
-                    if(!insert(t->p,t->sw)){
-                        insert(t->p,t->se);
-                    }
-                }
-            }
-        }
-
-        if(insert(p,t->nw))
-            return 1;
-        if(insert(p,t->ne))
-            return 1;
-        if(insert(p,t->sw))
-            return 1;
-        if(insert(p,t->se))
-            return 1;
-
+        return;
     }
-    return 0;
+    
+    if(!t->div){     
+        divide(t);
+        insert(t->p,t->nw);
+        insert(t->p,t->ne);
+        insert(t->p,t->sw);
+        insert(t->p,t->se);
+    }   
+    
+    insert(p,t->nw);
+    insert(p,t->ne);
+    insert(p,t->sw);
+    insert(p,t->se);
+    return;
 }
 
 
@@ -143,9 +134,7 @@ void printer(quadTree* t,int i){
         printf("vuoto\n");
         return;
     }
-    /*if(i>5){
-        return;
-    }*/
+    
     for(int j=0;j<i;j++){
         printf("     ");
     }
@@ -182,16 +171,38 @@ void printer(quadTree* t,int i){
     return;
 }
 
-int main(){
-    quadTree* c=(quadTree*)malloc(sizeof(quadTree));
-    particle* p=(particle*)malloc(sizeof(particle));
-    
-    p->x=4.3;
-    p->y=4.3;
-    
+//popolo l'array con le particelle nel file
+void getInput(FILE* file,particle* p1){
+    //prendo i dati per tutti i corpi
+    for(int i=0;i<numberBody;i++){
+        //prendo i dati dal file
+        fscanf(file,"%lf%lf%lf%lf%lf",&p1[i].x,&p1[i].y,&p1[i].mass,&p1[i].velX,&p1[i].velY);
+        //imposto le forze iniziali a zero
+        p1[i].forceX=0;
+        p1[i].forceY=0;
+        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
+    }
+    //chiudo il file
+    fclose(file);
+}
+
+//aprire il file e prendere i primi valori (seed e numero di corpi)
+FILE* initial(){
+    //mi apro il file in lettura
+    FILE* file=fopen(fileInput,"r");
+    //prendo il seed
+    fscanf(file,"%d",&seed);
+                                                                        printf("%d\n",seed);
+    //prendo il numero di corpi
+    fscanf(file,"%d",&numberBody);
+                                                                        printf("%d\n",numberBody);
+    return file;
+}
+
+void initialQuad(quadTree* c){
     c->x=0;
     c->y=0;
-    c->s=20;
+    c->s=1000;
     c->id[0]='1';
     c->id[1]='\0';
     c->div=false;
@@ -200,14 +211,22 @@ int main(){
     c->se=NULL;
     c->nw=NULL;
     c->sw=NULL;
-    particle* d=(particle*)malloc(sizeof(particle));
-    insert(p,c);
-                                                                        //printf("ciao");
-    //printer(c,0);
-    d->x=-0.2;
-    d->y=-0.2;
-    insert(d,c);
-                                                                        //printf("ciao");
+}
+
+int main(){
+    FILE* file=initial();
+    //alloco la memoria per l'array che contierrà tutte le particelle (p1)
+    particle* p1=malloc(sizeof(particle)*numberBody);
+    //popolo l'array
+    getInput(file,p1);
+    
+    quadTree* c=(quadTree*)malloc(sizeof(quadTree));
+    initialQuad(c);
+    
+    for(int i=0;i<numberBody;i++){
+        particle* p=&p1[i];
+        insert(p,c);
+    }
     printer(c,0);
     return 0;
 }

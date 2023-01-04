@@ -106,4 +106,8 @@ int main(){
     compute(maxTime,p1);
                                                                     printf("\n");
                                                                     stampa(p1);
+
+    fclose(file);
+    free(p1);
+    exit(1);
 }
