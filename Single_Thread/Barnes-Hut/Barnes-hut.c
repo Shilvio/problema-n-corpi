@@ -7,6 +7,7 @@
 int numberBody,seed,maxTime=2;
 char fileInput[]="../../Generate/particle.txt";
 double const G=6.67384E-11; // costante gravitazione universale
+double const THETA= 0.5; //thetha per il calcolo delle forze su particell
 
 typedef struct particle{
     double x;      // oszione x della particella
@@ -18,18 +19,25 @@ typedef struct particle{
     double velY;   // velocità della particella a un dato momento sull' asse y
 }particle;
 
+typedef struct massCenter{
+    double x;      // poszione x del centro di massa
+    double y;      // posizione y del centro di massa
+    double mass;   // massa totale al centro di massa
+}massCenter;
+
 typedef struct quadTree{
     char id[20];
     double x;            // x del centro dell' albero
     double y;            // y del centro del' albero
     double s;            // dimensione
     particle* p;         // puntatore a una particella
-    bool div;            // check della divisione dell' albero
+    massCenter* mc;      // centro di massa per quadrante
     struct quadTree* nw; // ramo nord ovest dell' albero guardando la suddivisione del quandrante
+    bool div;            // check della divisione dell' albero
     struct quadTree* ne; // ramo nord est dell' albero guardando la suddivisione del quandrante
     struct quadTree* sw; // ramo sud ovest dell' albero guardando la suddivisione del quandrante
     struct quadTree* se; // ramo sud est dell' albero guardando la suddivisione del quandrante
-                         //    _________________________
+                            //    _________________________
                          //   |          4 |          1 |
                          //   |    (NW)    |    (NE)    |
                          //   |            |            |
@@ -75,6 +83,8 @@ struct quadTree* newNode(double s,double x, double y,char* idF,char* son){
     t->se=NULL;
     t->nw=NULL;
     t->sw=NULL;
+    t->mc=NULL;
+    
 
     return t;
 }
@@ -143,7 +153,14 @@ void printer(quadTree* t,int i){
     for(int j=0;j<i;j++){
         printf("     ");
     }
-    printf("id=%s\n",t->id);
+    
+    if(t->mc==NULL){
+        printf("id=%s\n",t->id);
+    }
+    else{
+        printf("id=%s cm(x= %f, y= %f, mass= %e)\n",t->id,t->mc->x,t->mc->y,t->mc->mass);
+    }
+
     i+=1;
     if(t->div){
         for(int j=0;j<i;j++){
@@ -198,6 +215,94 @@ FILE* initial(){
                                                                         printf("%d\n",numberBody);
     return file;
 }
+// calcolo il centro di massa e la massa totale per le particelle in ogni sottoquadrato
+massCenter* centerMass(quadTree* c){
+    massCenter* mc=malloc(sizeof(massCenter)); 
+    if(!c->div){ //se non è stato diviso
+        if(c->p==NULL){ //se la particella non c'e
+            mc->x=0; 
+            mc->y=0;
+            mc->mass=0;
+            
+        }else{  //se c'è una particella
+            mc->x=c->p->x; //allora la massa e il centro di massa sono la posizione e la massa della particella stessa
+            mc->y=c->p->y;
+            mc->mass=c->p->mass;
+        }
+        return mc;
+    }   
+    //altrimenti per tutti i 4 figli 
+    massCenter* ne=centerMass(c->ne); //calcolo centro di massa alla radice del quadrante nord est (1)
+    massCenter* se=centerMass(c->se); //calcolo centro di massa alla radice del quadrante sud est (2)
+    massCenter* sw=centerMass(c->sw); //calcolo centro di massa alla radice del quadrante sud ovest (3)
+    massCenter* nw=centerMass(c->nw); //calcolo centro di massa alla radice del quadrante  ord ovest (4)
+    //la massa di un nodo e la somma delle masse dei figli = mass(1) + mass(2) + mass(3) + mass(4)
+    mc->mass= ne->mass + se->mass + sw->mass + nw->mass;
+    // il centro di massa di un nodo e la somma pesata dei centri di massa dei figli = (mass(1)*cm(1) + mass(2)*cm(2) + mass(3)*cm(3) + mass(4)*cm(4)) / mass
+    mc->x= (ne->mass*ne->x + nw->mass*nw->x + se->mass*se->x + sw->mass*sw->x) / mc->mass;
+    mc->y= (ne->mass*ne->y + nw->mass*nw->y + se->mass*se->y + sw->mass*sw->y) / mc->mass;
+    c->mc=mc;
+    return mc;
+}
+/* For each particle, traverse the tree to compute the force on it.
+    
+    For i = 1 to n
+        f(i) = TreeForce(i,root)   
+    end for
+
+    function f = TreeForce(i,n)
+        ... Compute gravitational force on particle i due to all particles in the box at n
+        f = 0
+        if n contains one particle
+            f = force computed using formula (*) above
+        else 
+            r = distance from particle i to center of mass of particles in n
+            D = size of box n
+            if D/r < theta
+                compute f using formula (*) above
+            else
+                for all children c of n
+                    f = f + TreeForce(i,c)
+                end for
+            end if
+        end if
+        
+        (*)
+            r = sqrt(( xcm - x )^2 + ( ycm - y )^2)
+            forcex = G * m * mcm * (xcm-ypart/r^2)
+            forcey = G * m * mcm * (ycm-ypart/r^2)
+             */
+
+void threeForce(quadTree* t,particle* p){
+    if(!t->div){ //se non e diviso
+        if(t->p!=NULL){ //se c'è una particella
+            double r = sqrt(pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2));
+            p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/pow(r,2));
+            p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/pow(r,2));
+        }
+        return;
+    }
+        
+    double r = sqrt(pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2));
+    if (t->s/r < THETA){
+        p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/pow(r,2));
+        p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/pow(r,2));
+        return;
+    } 
+    
+    threeForce(t->ne,p);
+    threeForce(t->se,p);
+    threeForce(t->sw,p);
+    threeForce(t->nw,p);
+    return;
+}
+
+void compute(quadTree* c,particle* p1){
+    for(int i=0;i<numberBody;i++){
+        
+    }
+
+}
 
 void initialQuad(quadTree* c){
     c->x=0;
@@ -225,6 +330,8 @@ int main(){
         particle* p=&p1[i];
         insert(p,c);
     }
+    centerMass(c);
     printer(c,0);
+    compute(c,p1);
     return 0;
 }
