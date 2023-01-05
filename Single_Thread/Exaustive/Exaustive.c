@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-int numberBody, seed, maxTime = 2;
+int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
 //double const G = 6.67384E-11;
 double const G = 1;
@@ -44,6 +44,9 @@ void calculateTotalForce(particle *p1, int j)
         double cubeDist = dist * dist * dist;
         p1[j].forceX -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * xDiff;
         p1[j].forceY -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff;
+                                                                                        //printf("\n%e",((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff);
+                                                                                        //printf("\n px=%e py=%e fX=%e fY=%e \n",p1[j].x,p1[j].y,p1[j].forceX,p1[j].forceY);
+                                                                                        //printf("px=%e py=%e \n",p1[i].x,p1[i].y);
     }
 }
 

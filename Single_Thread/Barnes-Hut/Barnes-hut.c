@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-int numberBody,seed,maxTime=2;
+int numberBody,seed,maxTime=3;
 char fileInput[]="../../Generate/particle.txt";
 //double const G=6.67384E-11; // costante gravitazione universale
 double const G=1;
@@ -126,7 +126,7 @@ void insert(particle* p,quadTree* t){
     
     
     if(!t->div){     
-        printf("loop\n");
+                                                                            //printf("loop\n");
         divide(t);
         insert(t->p,t->nw);
         insert(t->p,t->ne);
@@ -194,9 +194,9 @@ void printer(quadTree* t,int i){
 
     }else{
         for(int j=0;j<i;j++){
-        printf("     ");
-     }
-        printf(" pX %e pY %e\n",t->p->x,t->p->y);
+            printf("     ");
+        }
+        printf(" pX %e pY %e mass %e\n",t->p->x,t->p->y,t->p->mass);
     }
     return;
 }
@@ -243,7 +243,11 @@ massCenter* centerMass(quadTree* c){
             mc->y=c->p->y;
             mc->mass=c->p->mass;
         }
+                                                                            
         c->mc=mc;
+                                                                            //printf("id=%s\n",c->id);
+                                                                            //printf("id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
+                                                                            //printf(" pX %e pY %e mass %e\n",c->p->x,c->p->y,c->p->mass);
         return mc;
     }   
     //altrimenti per tutti i 4 figli 
@@ -256,24 +260,30 @@ massCenter* centerMass(quadTree* c){
     // il centro di massa di un nodo e la somma pesata dei centri di massa dei figli = (mass(1)*cm(1) + mass(2)*cm(2) + mass(3)*cm(3) + mass(4)*cm(4)) / mass
     mc->x= (ne->mass*ne->x + nw->mass*nw->x + se->mass*se->x + sw->mass*sw->x) / mc->mass;
     mc->y= (ne->mass*ne->y + nw->mass*nw->y + se->mass*se->y + sw->mass*sw->y) / mc->mass;
+
     c->mc=mc;
+                                                                            //printf("id=%s\n",c->id);
+                                                                            //printf("mod id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
+    
     return mc;
 }
 
 void threeForce(quadTree* t,particle* p){
     //printf("id=%s",t->id);
     //printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
-    double dist = sqrt(pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2));
+    double dist = sqrt(pow(p->x - t->mc->x,2) + pow(p->y - t->mc->y,2));
     if(dist==0){
         return;
     }
     if(!t->div){ //se non e diviso
         if(t->p!=NULL){ //se c'è una particella
-            double xDiff = t->mc->x - p->x;
-            double yDiff = t->mc->y - p->y;
+            double xDiff = p->x - t->mc->x ;
+            double yDiff = p->y - t->mc->y ;
             double cubeDist = dist * dist * dist;
-            p->forceX -= ((G * p->mass * p->mass) / cubeDist) * xDiff;
-            p->forceY -= ((G * p->mass * p->mass) / cubeDist) * yDiff;
+            p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
+            p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+                                                                                        //printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
+                                                                                        //printf("x=%e y=%e px=%e py=%e\n",t->mc->x,t->mc->y,p->x,p->velY);
         }
         //printf("ciao2");
         return;
@@ -281,11 +291,11 @@ void threeForce(quadTree* t,particle* p){
     
     if (t->s/dist < THETA){
         //printf("ciao");
-        double xDiff = t->mc->x - p->x;
-        double yDiff = t->mc->y - p->y;
+        double xDiff = p->x - t->mc->x ;
+        double yDiff = p->y - t->mc->y ;
         double cubeDist = dist * dist * dist;
-        p->forceX -= ((G * p->mass * p->mass) / cubeDist) * xDiff;
-        p->forceY -= ((G * p->mass * p->mass) / cubeDist) * yDiff;
+        p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
+        p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
         return;
     } 
     //printf("ciao3");
@@ -328,6 +338,7 @@ void initialQuad(quadTree* c){
     c->se=NULL;
     c->nw=NULL;
     c->sw=NULL;
+    c->mc=NULL;
 }
 
 void compute(particle* p1,int time){
@@ -341,15 +352,22 @@ void compute(particle* p1,int time){
             count++;
             insert(&p1[i],c);
         }
+                                                                //printer(c,0);
         centerMass(c);
+                                                                //printf("\ncalcolato il centro di massa\n\n");
+                                                                //printer(c,0);
         if(c->p==NULL){
             printf("out of range");
         }
                                                                 //printer(c,0);
         for(int i=0;i<numberBody;i++){
+                                                                //printf("\n");            
             threeForce(c,&p1[i]);
+
             calculatePosition(&p1[i],1);
         }
+                                                                //printf("\ncalcolato lo spostamento\n\n");
+                                                                //printerAlt(p1);
         destroyTree(c);
         //printer(c,0);
     }
@@ -365,6 +383,6 @@ int main(){
                                                         printf("\n");
     
     compute(p1,maxTime);
-    printerAlt(p1);
+                                                        printerAlt(p1);
     return 0;
 }
