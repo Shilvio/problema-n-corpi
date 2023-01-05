@@ -289,12 +289,12 @@ void threeForce(quadTree* t,particle* p){
                                                                                         //printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
                                                                                         //printf("x=%e y=%e px=%e py=%e\n",t->mc->x,t->mc->y,p->x,p->velY);
         }
-        //printf("ciao2");
+                                                                                        //printf("ciao2");
         return;
     }
     
     if (t->s/dist < THETA){
-        //printf("ciao");
+                                                                                        //printf("ciao");
         double xDiff = p->x - t->mc->x ;
         double yDiff = p->y - t->mc->y ;
         double cubeDist = dist * dist * dist;
