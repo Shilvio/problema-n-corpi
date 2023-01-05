@@ -4,8 +4,8 @@
 
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
-//double const G = 6.67384E-11;
-double const G = 1;
+double const G = 6.67384E-11;
+//double const G = 1;
 
 typedef struct particle
 {

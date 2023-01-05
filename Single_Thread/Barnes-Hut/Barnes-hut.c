@@ -6,11 +6,11 @@
 
 int numberBody,seed,maxTime=3;
 char fileInput[]="../../Generate/particle.txt";
-//double const G=6.67384E-11; // costante gravitazione universale
-double const G=1;
-double const THETA= 0.0; //thetha per il calcolo delle forze su particell
-//double maxSize =6.162025e+070;
-double maxSize = 100;
+double const G=6.67384E-11; // costante gravitazione universale
+//double const G=1;
+double const THETA= 0.5; //thetha per il calcolo delle forze su particell
+double maxSize =6.162025e+070;
+//double maxSize = 100;
 int count=0;
 
 typedef struct particle{
@@ -144,6 +144,10 @@ void insert(particle* p,quadTree* t){
 // funzione che costruisce l' albero
 void buildquadTree(particle* p1,quadTree* t){ 
     for(int i=0;i<numberBody;i++){
+        if(contains(t,&p1[i])){
+            printf("out rangeparticle\n");
+            exit(1);
+        }
         insert(&p1[i],t);
     }
 }
@@ -350,15 +354,16 @@ void compute(particle* p1,int time){
         for(int i=0;i<numberBody;i++){
                                                                 //printf("%d number=%d x=%e y=%e \n",count,i,p1[i].x,p1[i].y);
             count++;
+            if(!contains(c,&p1[i])){                             //se la particella esce dal quadrato principale
+                printf("%d out range particle\n",i);
+                exit(1);
+            }
             insert(&p1[i],c);
         }
                                                                 //printer(c,0);
         centerMass(c);
                                                                 //printf("\ncalcolato il centro di massa\n\n");
                                                                 //printer(c,0);
-        if(c->p==NULL){
-            printf("out of range");
-        }
                                                                 //printer(c,0);
         for(int i=0;i<numberBody;i++){
                                                                 //printf("\n");            
