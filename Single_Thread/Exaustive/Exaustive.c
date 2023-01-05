@@ -46,7 +46,7 @@ void calculateTotalForce(particle *p1, int j)
     }
 }
 
-void stampa(particle *p1)
+void printer(particle *p1)
 {
     for (int i = 0; i < numberBody; i++)
     {
@@ -115,11 +115,11 @@ int main()
     // popolo l'array
     getInput(file, p1);
     printf("\n");
-    stampa(p1);
+    printer(p1);
     // calcolo il movimento delle particelle nel tempo richiesto
     compute(maxTime, p1);
     printf("\n");
-    stampa(p1);
+    printer(p1);
 
     fclose(file);
     free(p1);
