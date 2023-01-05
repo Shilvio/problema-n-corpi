@@ -4,7 +4,8 @@
 
 int numberBody, seed, maxTime = 2;
 char fileInput[] = "../../Generate/particle.txt";
-double const G = 6.67384E-11;
+//double const G = 6.67384E-11;
+double const G = 1;
 
 typedef struct particle
 {
@@ -41,8 +42,8 @@ void calculateTotalForce(particle *p1, int j)
         double yDiff = p1[j].y - p1[i].y;
         double dist = sqrt(xDiff * xDiff + yDiff * yDiff);
         double cubeDist = dist * dist * dist;
-        p1[j].forceX -= G * p1[j].mass * p1[i].mass / cubeDist * xDiff;
-        p1[j].forceY -= G * p1[j].mass * p1[i].mass / cubeDist * yDiff;
+        p1[j].forceX -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * xDiff;
+        p1[j].forceY -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff;
     }
 }
 
@@ -114,8 +115,6 @@ int main()
     particle *p1 = malloc(sizeof(particle) * numberBody);
     // popolo l'array
     getInput(file, p1);
-    printf("\n");
-    printer(p1);
     // calcolo il movimento delle particelle nel tempo richiesto
     compute(maxTime, p1);
     printf("\n");

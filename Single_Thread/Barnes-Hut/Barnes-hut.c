@@ -6,8 +6,12 @@
 
 int numberBody,seed,maxTime=2;
 char fileInput[]="../../Generate/particle.txt";
-double const G=6.67384E-11; // costante gravitazione universale
+//double const G=6.67384E-11; // costante gravitazione universale
+double const G=1;
 double const THETA= 0.0; //thetha per il calcolo delle forze su particell
+//double maxSize =6.162025e+070;
+double maxSize = 100;
+int count=0;
 
 typedef struct particle{
     double x;      // oszione x della particella
@@ -37,7 +41,7 @@ typedef struct quadTree{
     struct quadTree* ne; // ramo nord est dell' albero guardando la suddivisione del quandrante
     struct quadTree* sw; // ramo sud ovest dell' albero guardando la suddivisione del quandrante
     struct quadTree* se; // ramo sud est dell' albero guardando la suddivisione del quandrante
-                            //    _________________________
+                         //    _________________________
                          //   |          4 |          1 |
                          //   |    (NW)    |    (NE)    |
                          //   |            |            |
@@ -108,7 +112,9 @@ void divide(quadTree* t){
 
 // funzione che inserisce le particelle in un determinato quadrante (max 1 per quadrante)
 void insert(particle* p,quadTree* t){
+                                                                            //printf("%d\n",count-1);
     if(!contains(t,p)){  
+                                                                            //printf("uscito\n");
         return;
     }
                                                                             //printf("ciao");   
@@ -118,7 +124,9 @@ void insert(particle* p,quadTree* t){
         return;
     }
     
+    
     if(!t->div){     
+        printf("loop\n");
         divide(t);
         insert(t->p,t->nw);
         insert(t->p,t->ne);
@@ -158,7 +166,7 @@ void printer(quadTree* t,int i){
         printf("id=%s\n",t->id);
     }
     else{
-        printf("id=%s cm(x= %f, y= %f, mass= %e)\n",t->id,t->mc->x,t->mc->y,t->mc->mass);
+        printf("id=%s cm(x= %e, y= %e, mass= %e)\n",t->id,t->mc->x,t->mc->y,t->mc->mass);
     }
 
     i+=1;
@@ -188,7 +196,7 @@ void printer(quadTree* t,int i){
         for(int j=0;j<i;j++){
         printf("     ");
      }
-        printf(" pX %f pY %f\n",t->p->x,t->p->y);
+        printf(" pX %e pY %e\n",t->p->x,t->p->y);
     }
     return;
 }
@@ -255,23 +263,29 @@ massCenter* centerMass(quadTree* c){
 void threeForce(quadTree* t,particle* p){
     //printf("id=%s",t->id);
     //printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
-    double r = pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2);
-    if(r==0){
+    double dist = sqrt(pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2));
+    if(dist==0){
         return;
     }
     if(!t->div){ //se non e diviso
         if(t->p!=NULL){ //se c'è una particella
-            p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/r);
-            p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/r);
+            double xDiff = t->mc->x - p->x;
+            double yDiff = t->mc->y - p->y;
+            double cubeDist = dist * dist * dist;
+            p->forceX -= ((G * p->mass * p->mass) / cubeDist) * xDiff;
+            p->forceY -= ((G * p->mass * p->mass) / cubeDist) * yDiff;
         }
         //printf("ciao2");
         return;
     }
     
-    if (t->s/r < THETA){
+    if (t->s/dist < THETA){
         //printf("ciao");
-        p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/r);
-        p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/r);
+        double xDiff = t->mc->x - p->x;
+        double yDiff = t->mc->y - p->y;
+        double cubeDist = dist * dist * dist;
+        p->forceX -= ((G * p->mass * p->mass) / cubeDist) * xDiff;
+        p->forceY -= ((G * p->mass * p->mass) / cubeDist) * yDiff;
         return;
     } 
     //printf("ciao3");
@@ -288,19 +302,24 @@ void calculatePosition(particle* p,int time){
     p->velX+=time/p->mass*p->forceX;
     p->velY+=time/p->mass*p->forceY;
 }
-
-void compute(quadTree* c,particle* p1){
-    for(int i=0;i<numberBody;i++){
-        threeForce(c,&p1[i]);
-        calculatePosition(&p1[i],1);
+// funzione per distruggere l' albero a ogni iterazione dell' algoritmo
+void destroyTree(quadTree* c){
+    if(!c->div){
+        free(c);
+        return;
     }
-
+    destroyTree(c->ne);
+    destroyTree(c->se);
+    destroyTree(c->sw);
+    destroyTree(c->nw);
+    free(c);
+    return;
 }
 
 void initialQuad(quadTree* c){
     c->x=0;
     c->y=0;
-    c->s=1000;
+    c->s=maxSize;
     c->id[0]='1';
     c->id[1]='\0';
     c->div=false;
@@ -311,22 +330,41 @@ void initialQuad(quadTree* c){
     c->sw=NULL;
 }
 
+void compute(particle* p1,int time){
+    
+    for(int j=0;j<time;j++){
+        quadTree* c=(quadTree*)malloc(sizeof(quadTree));
+        
+        initialQuad(c);
+        for(int i=0;i<numberBody;i++){
+                                                                //printf("%d number=%d x=%e y=%e \n",count,i,p1[i].x,p1[i].y);
+            count++;
+            insert(&p1[i],c);
+        }
+        centerMass(c);
+        if(c->p==NULL){
+            printf("out of range");
+        }
+                                                                //printer(c,0);
+        for(int i=0;i<numberBody;i++){
+            threeForce(c,&p1[i]);
+            calculatePosition(&p1[i],1);
+        }
+        destroyTree(c);
+        //printer(c,0);
+    }
+}
+
 int main(){
     FILE* file=initial();       //alloco la memoria per l'array che conterrà tutte le particelle (p1)
     particle* p1=malloc(sizeof(particle)*numberBody);   //popolo l'array
     getInput(file,p1);
     
-    quadTree* c=(quadTree*)malloc(sizeof(quadTree));
-    initialQuad(c);
     
-    for(int i=0;i<numberBody;i++){
-        insert(&p1[i],c);
-    }
-    centerMass(c);
     //printer(c,0);
                                                         printf("\n");
     
-    compute(c,p1);
+    compute(p1,maxTime);
     printerAlt(p1);
     return 0;
 }
