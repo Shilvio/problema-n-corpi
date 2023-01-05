@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-int numberBody,seed,maxTime=2;
+int numberBody,seed,maxTime=1;
 char fileInput[]="../../Generate/particle.txt";
 double const G=6.67384E-11;
 
@@ -42,7 +42,7 @@ void calculateTotalForce(particle* p1,int j){
     }
 }
 
-void stampa(particle* p1){
+void printer(particle* p1){
     for(int i=0;i<numberBody;i++){
         printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
     }
@@ -101,11 +101,11 @@ int main(){
     //popolo l'array
     getInput(file,p1);
                                                                     printf("\n");
-                                                                    stampa(p1);
+                                                                    printer(p1);
     //calcolo il movimento delle particelle nel tempo richiesto
     compute(maxTime,p1);
                                                                     printf("\n");
-                                                                    stampa(p1);
+                                                                    printer(p1);
 
     fclose(file);
     free(p1);

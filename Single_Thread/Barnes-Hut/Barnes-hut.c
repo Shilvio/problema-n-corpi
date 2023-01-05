@@ -7,7 +7,7 @@
 int numberBody,seed,maxTime=2;
 char fileInput[]="../../Generate/particle.txt";
 double const G=6.67384E-11; // costante gravitazione universale
-double const THETA= 0.5; //thetha per il calcolo delle forze su particell
+double const THETA= 0.0; //thetha per il calcolo delle forze su particell
 
 typedef struct particle{
     double x;      // oszione x della particella
@@ -193,6 +193,12 @@ void printer(quadTree* t,int i){
     return;
 }
 
+void printerAlt(particle* p1){
+    for(int i=0;i<numberBody;i++){
+        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",p1[i].x,p1[i].y,p1[i].mass,p1[i].forceX,p1[i].forceY,p1[i].velX,p1[i].velY);
+    }
+}
+
 void getInput(FILE* file,particle* p1){     //popolo l'array con le particelle nel file
     for(int i=0;i<numberBody;i++){          //prendo i dati per tutti i corpi
         fscanf(file,"%lf%lf%lf%lf%lf",&p1[i].x,&p1[i].y,&p1[i].mass,&p1[i].velX,&p1[i].velY);//prendo i dati dal file
@@ -229,6 +235,7 @@ massCenter* centerMass(quadTree* c){
             mc->y=c->p->y;
             mc->mass=c->p->mass;
         }
+        c->mc=mc;
         return mc;
     }   
     //altrimenti per tutti i 4 figli 
@@ -244,52 +251,30 @@ massCenter* centerMass(quadTree* c){
     c->mc=mc;
     return mc;
 }
-/* For each particle, traverse the tree to compute the force on it.
-    
-    For i = 1 to n
-        f(i) = TreeForce(i,root)   
-    end for
-
-    function f = TreeForce(i,n)
-        ... Compute gravitational force on particle i due to all particles in the box at n
-        f = 0
-        if n contains one particle
-            f = force computed using formula (*) above
-        else 
-            r = distance from particle i to center of mass of particles in n
-            D = size of box n
-            if D/r < theta
-                compute f using formula (*) above
-            else
-                for all children c of n
-                    f = f + TreeForce(i,c)
-                end for
-            end if
-        end if
-        
-        (*)
-            r = sqrt(( xcm - x )^2 + ( ycm - y )^2)
-            forcex = G * m * mcm * (xcm-ypart/r^2)
-            forcey = G * m * mcm * (ycm-ypart/r^2)
-             */
 
 void threeForce(quadTree* t,particle* p){
-    if(!t->div){ //se non e diviso
-        if(t->p!=NULL){ //se c'è una particella
-            double r = sqrt(pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2));
-            p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/pow(r,2));
-            p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/pow(r,2));
-        }
+    //printf("id=%s",t->id);
+    //printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
+    double r = pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2);
+    if(r==0){
         return;
     }
-        
-    double r = sqrt(pow(t->mc->x - p->x,2) + pow( t->mc->y - p->y,2));
+    if(!t->div){ //se non e diviso
+        if(t->p!=NULL){ //se c'è una particella
+            p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/r);
+            p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/r);
+        }
+        //printf("ciao2");
+        return;
+    }
+    
     if (t->s/r < THETA){
-        p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/pow(r,2));
-        p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/pow(r,2));
+        //printf("ciao");
+        p->forceX += G * p->mass * t->mc->mass * (t->mc->x-p->x/r);
+        p->forceY += G * p->mass * t->mc->mass * (t->mc->y-p->y/r);
         return;
     } 
-    
+    //printf("ciao3");
     threeForce(t->ne,p);
     threeForce(t->se,p);
     threeForce(t->sw,p);
@@ -297,9 +282,17 @@ void threeForce(quadTree* t,particle* p){
     return;
 }
 
+void calculatePosition(particle* p,int time){
+    p->x+=time*p->velX;
+    p->y+=time*p->velY;
+    p->velX+=time/p->mass*p->forceX;
+    p->velY+=time/p->mass*p->forceY;
+}
+
 void compute(quadTree* c,particle* p1){
     for(int i=0;i<numberBody;i++){
-        
+        threeForce(c,&p1[i]);
+        calculatePosition(&p1[i],1);
     }
 
 }
@@ -327,11 +320,13 @@ int main(){
     initialQuad(c);
     
     for(int i=0;i<numberBody;i++){
-        particle* p=&p1[i];
-        insert(p,c);
+        insert(&p1[i],c);
     }
     centerMass(c);
-    printer(c,0);
+    //printer(c,0);
+                                                        printf("\n");
+    
     compute(c,p1);
+    printerAlt(p1);
     return 0;
 }
