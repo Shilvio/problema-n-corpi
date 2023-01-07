@@ -9,7 +9,7 @@ Silvio Gori  matricola 1844168
 # Problema N-Corpi
 
 
-Il problema N-corpi o "N-body problem" dall' inglese, è uno dei problemi più fertili della fisica matematica, basato sulla seconda legge del moto e la legge di gravitazione universale stipulate da Newton.
+Il problema N-corpi o "N-body problem" dall' inglese, è uno dei problemi più incisivi della fisica matematica, basato sulla seconda legge del moto e la legge di gravitazione universale stipulate da Newton.
 
 Viene posto il quesito del calcolo del moto di **n** particelle, soggette alla legge di gravitazione universale date: le loro masse, velocità e posizione nello spazio e il loro mutare nel tempo.
 
@@ -34,7 +34,7 @@ applicando tale sommatoria a tutte le particelle si può creare un **algoritmo**
 
 Un altro approccio per ridurre drasticamente il numero di calcoli che deve svolgere il programma è quello di utilizzare l'**algoritmo di Barnes-Hut**. 
 
-In queste simulazioni verrà usato un albero a **4 nodi** per radice, detto **quadTree**, e le simulazioni verranno eseguite su piano bidimensionale.
+In queste simulazioni verrà usato un albero a **4 nodi** per radice, detto **quadTree** e le simulazioni verranno eseguite su piano bidimensionale.
 
 l' algoritmo cponsiste nel dividere la regione di spazio dove sono contenute le particelle in 4 parti, continuare ricorsivamente la divisione fino a raggiungere la capacità di una particella per quandrante.
 
@@ -52,11 +52,11 @@ Ogni **cm** è coposto da un valore che indica la mass e 2 valori che indicano l
   Per esempio, in una griglia bidimensionale per trovare la x del epicentro del cm (**X<b><sub>cm </sub></b>** )si può usare la formula:
    $$X_{cm} = \frac{\sum^{i=0}_{n-1}mass_{fi} * X_{fi}} {mass_{cm}} $$
 
-Una volta calcolati i centri di massa si passa al calcolo delle forze che agiscono sulle particelle, si esamina l' albero dalla radice alle foglie, esaminando prima i figli ( post-order traversal ), per ridurre i calcoli si passa tutto a un filtro, una costante **θ**, di solito dal valore compreso tra 0 e 1.5, che determina fino a quale grado avviene l' approssimazione:
+Una volta calcolati i centri di massa si passa al calcolo delle forze che agiscono sulle particelle, si esamina l' albero dalla radice alle foglie, guardando prima i figli ( post-order traversal) e per ridurre i calcoli si passa tutto a un filtro, una costante **θ**, di solito dal valore compreso tra 0 e 1.5, che determina fino a quale grado avviene l' approssimazione:
 - se **θ** = 0, la velocità dell' algoritmo sarà uguale a quello dell' algoritmo naive.
 -  Per valori **θ** maggiori di 1 si inizia a vedere l' impatto dell' approssimazione sulla velocità di calcolo anche su poche particelle, aumentando naturalmente l' errore d' approssimazione sui vari calcoli.
   
-Il calcolo delle forze delle partielle procede con le stesse formule del metodo naive, ma riducendo i calcoli usando i centri di massa al posto di ogni massa delle altre particelle,scelti dal **θ**, per ogni particella da calcolare, all' effettivo riducendo la quantità di calcoli per particella.
+Il calcolo delle forze delle partielle procede con le stesse formule del metodo naive, ma riducendo i calcoli usando la massa dei centri di massa al posto delle varie masse delle altre particelle, i centri di massa da utilizzare vengono scelti in base al filtro del **θ**, riducendo l' accesso all' albero e quindi la quantità di calcoli per paritcella, per ogni particella.
 
 
 # Implementazione seriale
