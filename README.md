@@ -24,7 +24,7 @@ Utilizzando la formula di gravitazione universale unita alla seconda legge del m
 
 la forza **f<b><sub>qk </sub></b>** che esercita **k** sulla particella **q** è data da:
 
-$$ f_{qk} = {G * m_q * m_k \over |s_q( t)-s_k( t)|^3} *{[s_q( t)s_k( t)]} $$
+$$f_{qk} = {G * m_q * m_k \over |s_q( t)-s_k( t)|^3} *{[s_q( t)s_k( t)]}$$
 Per calcolare le forze che tutte le particelle esercitsno su **q** , definito come: **F<b><sub>q </sub></b>**, possiamo usare la sommatoria:
 	 $$F_q = \sum^{n-1}_{k=0 \space\land \space k!=q}{f_qk}$$
 applicando tale sommatoria a tutte le particelle si può creare un **algoritmo** che calcola ogni volta le forze relative alle particelle, viene definito come approccio **naive**, ergo calcolando in bruteforce tutte le forze delle particelle e successivamente la posizione e velocità relativa. Ciò aumenta notevolmente i tempi di simulazione specialmente per grandi numeri di particelle, avendo un costo computazionale elevato.
@@ -48,9 +48,10 @@ Ogni **cm** è coposto da un valore che indica la mass e 2 valori che indicano l
   -  per determinare la massa, vengono presi i **cm** deggli **n** figli e sommati tra loro.
     
   -  per ottenerne posizioni di esse:
-  si fa la somma del prodotto tra le masse (**mass<b><sub>f0-(n-1)</sub><b>**) e posizioni di tutti i figli(**X<b><sub>f0-(n-1) </sub></b>** ) e si divide per la massa totale del **cm** (**mass<b><sub>cm </sub></b>**).
-  Per esempio, in una griglia bidimensionale per trovare la x del epicentro del cm (**X<b><sub>cm </sub></b>** )si può usare la formula:
-   $$X_{cm} = \frac{\sum^{i=0}_{n-1}mass_{fi} * X_{fi}} {mass_{cm}} $$
+  si fa la somma del prodotto tra le masse (**mass<b><sub>f0-(n-1)</sub></b>**) e posizioni di tutti i figli(**X<b><sub>f0-(n-1) </sub></b>** ) e si divide per la massa totale del ** cm ** (**mass<b><sub>cm </sub></b>**).
+  Per esempio, in una griglia bidimensionale per trovare la x del epicentro del cm ( **X<b><sub>cm </sub></b>** )si può usare la formula:
+	
+$$X_{cm} = ({\sum^{i=0}_{n-1}mass_{fi} * X_{fi}})\space/\space{mass_{cm}}$$
 
 Una volta calcolati i centri di massa si passa al calcolo delle forze che agiscono sulle particelle, si esamina l' albero dalla radice alle foglie, guardando prima i figli ( post-order traversal) e per ridurre i calcoli si passa tutto a un filtro, una costante **θ**, di solito dal valore compreso tra 0 e 1.5, che determina fino a quale grado avviene l' approssimazione:
 - se **θ** = 0, la velocità dell' algoritmo sarà uguale a quello dell' algoritmo naive.
