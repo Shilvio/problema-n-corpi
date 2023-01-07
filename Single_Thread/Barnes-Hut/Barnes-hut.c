@@ -300,7 +300,7 @@ massCenter *centerMass(quadTree *c)
     // figli = mass(1) + mass(2) + mass(3) + mass(4)
     mc->mass = ne->mass + se->mass + sw->mass + nw->mass;
     // il centro di massa di un nodo è la somma pesata dei centri di massa dei
-    // figli = (mass(1)*cm(1) + mass(2)*cm(2) + mass(3)*cm(3) + mass(4)*cm(4)) / mass
+    // poizione = (mass(1)*cm(1) + mass(2)*cm(2) + mass(3)*cm(3) + mass(4)*cm(4)) / mass
     mc->x = (ne->mass * ne->x + nw->mass * nw->x + se->mass * se->x + sw->mass * sw->x) / mc->mass;
     mc->y = (ne->mass * ne->y + nw->mass * nw->y + se->mass * se->y + sw->mass * sw->y) / mc->mass;
 
