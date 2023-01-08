@@ -438,7 +438,7 @@ int main()
     getInput(file, p1);                                   // lancio lo script per recuperare le particelle
 
     // printer(c,0);                                      // stampo in caso di debug
-    // printf("\n");
+    printf("\n");
 
     compute(p1, maxTime); // applico la funzione compute per gestire il programma
     printerAlt(p1);       // stampo i risultati
