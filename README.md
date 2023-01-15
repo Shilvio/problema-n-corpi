@@ -1,10 +1,10 @@
 <img src="https://user-images.githubusercontent.com/63518174/210822356-9cfed022-b237-43fe-af06-ab5266f65b31.png" alt="drawing" width="200"/>
 
-Demetryo Grad matricola
+Demetryo Grad
 
-Matteo Bernardo matricola 
+Matteo Bernardo
 
-Silvio Gori  matricola 1844168 
+Silvio Gori
 
 # Problema N-Corpi
 
