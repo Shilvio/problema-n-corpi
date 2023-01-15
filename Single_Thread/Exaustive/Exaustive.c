@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
+
+//variabili per il calcolo del tempo di esecuzione
+
 
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
@@ -111,7 +115,9 @@ FILE *initial()
 }
 
 int main()
-{
+{   
+    clock_t start, end;
+    double cpu_time_used;   
     // apro il file dove si trovano tutte le particelle
     FILE *file = initial();
     // alloco la memoria per l'array che contierrà tutte le particelle (p1)
@@ -119,7 +125,15 @@ int main()
     // popolo l'array
     getInput(file, p1);
     // calcolo il movimento delle particelle nel tempo richiesto
+    start = clock();  
+    
+                                           //avvio il clock per calcolo del tempo di esecuzione
     compute(maxTime, p1);
+    end = clock();                                             //fermo il clock per il calcolo del tempo di esecuzione
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC; //converto in secondi
+    //cpu_time_used = (end - start);                    //converto in clock time
+    printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
+
     printf("\n");
     printer(p1);
 

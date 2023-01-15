@@ -5,7 +5,7 @@
 
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
-double const G = 6.67384E-11;
+__constant__ double G = 6.67384E-11;
 //double const G = 1;
 
 typedef struct particle
@@ -19,36 +19,65 @@ typedef struct particle
     double velY;
 } particle;
 
-// calcolo del cambio della posizione per una particella di interesse per un dato intervallo di tempo e velocità
-void calculatePosition(particle *p, int time)
+__device__ void printerKer(particle *p1, int numberBody)
 {
-    p->x += time * p->velX;
-    p->y += time * p->velY;
-    p->velX += time / p->mass * p->forceX;
-    p->velY += time / p->mass * p->forceY;
+    for (int i = 0; i < numberBody; i++)
+    {
+        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+    }
+}
+
+// calcolo del cambio della posizione per una particella di interesse per un dato intervallo di tempo e velocità
+__device__ void calculatePosition(particle p, int time,int ID, particle* p1End)
+{
+    p.x += time * p.velX;
+    p.y += time * p.velY;
+    p.velX += time / p.mass * p.forceX;
+    p.velY += time / p.mass * p.forceY;
+
+    p1End[ID]=p;
 }
 
 // calcolo tutte le forze relative ad una particella di interesse
-void calculateTotalForce(particle *p1, int j)
+__global__ void calculateTotalForce(particle *p1Start,particle* p1End, int j)
 {
-    // itero per tutte le particelle tranne quella di interesse
-    for (int i = 0; i < numberBody; i++)
-    {
-        if (i == j)
+    int sizeMAx=2;
+    int tot=4;
+    __shared__ particle temp[2];
+    int tId=blockIdx.x*blockDim.x+threadIdx.x;
+
+    int ID=threadIdx.x;
+    particle me=p1Start[tId];
+
+    for(int i=0;i<tot/sizeMAx;i++){//da scalare (+1)
+
+        temp[ID]=p1Start[i*sizeMAx+ID];
+        __syncthreads();
+
+        for (int j = 0; j < sizeMAx; j++)//da scalare
         {
-            continue;
+            if (tId == i*sizeMAx+j)
+            {
+                continue;
+            }
+
+            // calcolo delle forze
+            double xDiff = me.x - temp[j].x;
+            double yDiff = me.y - temp[j].y;
+            double dist = sqrt(xDiff * xDiff + yDiff * yDiff);
+            double cubeDist = dist * dist * dist;
+            me.forceX -= ((G * me.mass * temp[j].mass) / cubeDist) * xDiff;
+            me.forceY -= ((G * me.mass * temp[j].mass) / cubeDist) * yDiff;
+                                                                                            //printf("%d con %d\n",tId,i*sizeMAx+j);
+                                                                                            //printf("\n%e",((G * me.mass * temp[i].mass) / cubeDist) * yDiff);
+                                                                                            //printf("\n px=%e py=%e fX=%e fY=%e \n",me.x,me.y,me.forceX,me.forceY);
+                                                                                            //printf("px=%e py=%e \n",temp[i].x,temp[i].y);
         }
-        // calcolo delle forze
-        double xDiff = p1[j].x - p1[i].x;
-        double yDiff = p1[j].y - p1[i].y;
-        double dist = sqrt(xDiff * xDiff + yDiff * yDiff);
-        double cubeDist = dist * dist * dist;
-        p1[j].forceX -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * xDiff;
-        p1[j].forceY -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff;
-                                                                                        //printf("\n%e",((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff);
-                                                                                        //printf("\n px=%e py=%e fX=%e fY=%e \n",p1[j].x,p1[j].y,p1[j].forceX,p1[j].forceY);
-                                                                                        //printf("px=%e py=%e \n",p1[i].x,p1[i].y);
+        __syncthreads();
+
     }
+
+    calculatePosition(me, 1,tId,p1End);
 }
 
 void printer(particle *p1)
@@ -62,22 +91,26 @@ void printer(particle *p1)
 // calcolo il movimento delle particelle nel tempo richiesto
 void compute(int time, particle *p1)
 {
-    // itero per il tempo tichiesto
-    for (int i = 0; i < time; i++)
-    {
-        // itero per ogni corpo
-        for (int j = 0; j < numberBody; j++)
-        {
-            // calcolo tutte le forze relative ad una particella di interesse
-            calculateTotalForce(p1, j);
-        }
-        // itero per ogni corpo
-        for (int j = 0; j < numberBody; j++)
-        {
-            // calcolo del cambio della posizione per una particella di interesse
-            calculatePosition(&p1[j], 1);
-        }
+    particle *p1Dstart,*p1Dend;
+    cudaMalloc((void**)&p1Dstart,sizeof(particle) * numberBody);
+    cudaMalloc((void**)&p1Dend,sizeof(particle) * numberBody);
+    cudaMemcpy(p1Dend,p1,sizeof(particle) * numberBody,cudaMemcpyHostToDevice);
+
+    for(int i=0;i<time;i++){
+        
+        particle* temp=p1Dstart;
+        p1Dstart=p1Dend;
+        p1Dend=temp;
+
+        calculateTotalForce<<<2,2,sizeof(particle)*2>>>(p1Dstart,p1Dend, 0);
+        cudaDeviceSynchronize();
+        
+                                                                                            //printf("\ncambio\n");
     }
+
+    cudaMemcpy(p1,p1Dend,sizeof(particle) * numberBody,cudaMemcpyDeviceToHost);
+    
+
 }
 
 // popolo l'array con le particelle nel file
@@ -111,6 +144,10 @@ FILE *initial()
     return file;
 }
 
+void cudaAllocate() {
+    
+}
+
 int main()
 {
     // apro il file dove si trovano tutte le particelle
@@ -119,8 +156,6 @@ int main()
     particle *p1 = (particle*) malloc(sizeof(particle) * numberBody);
     // popolo l'array
     getInput(file, p1);
-
-    
 
     // calcolo il movimento delle particelle nel tempo richiesto
     compute(maxTime, p1);
