@@ -14,5 +14,6 @@ int main(){
     for(int i=0;i<NUMBER_BODY;i++)
         fprintf(file,"%f %f %f %f %f\n",rand()/(RAND_MAX/dim)-dim/2,rand()/(RAND_MAX/dim)-dim/2,\
         rand()/(RAND_MAX/mass),rand()/(RAND_MAX/vel)-vel/2,rand()/(RAND_MAX/vel)-vel/2);
+    fclose(file);
     return 0;
 }

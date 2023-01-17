@@ -19,6 +19,34 @@ typedef struct particle
     double velY;
 } particle;
 
+int statGPU() {
+    int numberGPU;
+    cudaGetDeviceCount(&numberGPU);
+    if(numberGPU<1){
+        printf("non sono state rilevate GPU adeguate per esegiure il programma");
+        exit(1);
+    }
+
+    cudaDeviceProp pr;
+    cudaGetDeviceProperties(&pr,0);//thread per blocco 877
+    int f = pr.sharedMemPerBlock/sizeof(particle); //massima dim memoria per blocco/grandezza struct particella 
+    //printf("\n%d\n",f);
+
+    if(pr.maxThreadsPerMultiProcessor%f){
+
+        int h=pr.maxThreadsPerMultiProcessor;
+
+        while (h>f)
+        {
+            h=h/2;
+        }
+        
+        f=h;
+    }
+    printf("\n%d\n",f);
+    return f;
+}
+
 __device__ void printerKer(particle *p1, int numberBody)
 {
     for (int i = 0; i < numberBody; i++)
@@ -39,19 +67,21 @@ __device__ void calculatePosition(particle p, int time,int ID, particle* p1End)
 }
 
 // calcolo tutte le forze relative ad una particella di interesse
-__global__ void calculateTotalForce(particle *p1Start,particle* p1End, int j)
+__global__ void calculateTotalForce(particle *p1Start,particle* p1End,int tot)
 {
-    int sizeMAx=2;
-    int tot=4;
-    __shared__ particle temp[2];
+    int sizeMAx=blockDim.x;
+    extern __shared__ particle temp[];
     int tId=blockIdx.x*blockDim.x+threadIdx.x;
 
     int ID=threadIdx.x;
     particle me=p1Start[tId];
 
-    for(int i=0;i<tot/sizeMAx;i++){//da scalare (+1)
+    //printf("%d, %d\n",blockIdx.x,ID);
 
-        temp[ID]=p1Start[i*sizeMAx+ID];
+    for(int i=0;i<(tot/sizeMAx)+1;i++){//da scalare (+1)
+        if(i*sizeMAx+ID<tot){
+            temp[ID]=p1Start[i*sizeMAx+ID];
+        }
         __syncthreads();
 
         for (int j = 0; j < sizeMAx; j++)//da scalare
@@ -61,6 +91,11 @@ __global__ void calculateTotalForce(particle *p1Start,particle* p1End, int j)
                 continue;
             }
 
+            //aggiunto 
+            if(i*sizeMAx+j>=tot){
+                break;
+            }
+            
             // calcolo delle forze
             double xDiff = me.x - temp[j].x;
             double yDiff = me.y - temp[j].y;
@@ -91,6 +126,8 @@ void printer(particle *p1)
 // calcolo il movimento delle particelle nel tempo richiesto
 void compute(int time, particle *p1)
 {
+    int thread=statGPU();
+    int block=(numberBody/thread)+1;
     particle *p1Dstart,*p1Dend;
     cudaMalloc((void**)&p1Dstart,sizeof(particle) * numberBody);
     cudaMalloc((void**)&p1Dend,sizeof(particle) * numberBody);
@@ -102,7 +139,7 @@ void compute(int time, particle *p1)
         p1Dstart=p1Dend;
         p1Dend=temp;
 
-        calculateTotalForce<<<2,2,sizeof(particle)*2>>>(p1Dstart,p1Dend, 0);
+        calculateTotalForce<<<block,thread,sizeof(particle)*thread>>>(p1Dstart,p1Dend,numberBody);
         cudaDeviceSynchronize();
         
                                                                                             //printf("\ncambio\n");
@@ -142,10 +179,6 @@ FILE *initial()
     fscanf(file, "%d", &numberBody);
     printf("%d\n", numberBody);
     return file;
-}
-
-void cudaAllocate() {
-    
 }
 
 int main()
