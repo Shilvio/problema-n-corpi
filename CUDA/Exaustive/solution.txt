@@ -1,0 +1,4 @@
+particle xPos= -3.087411e+01, yPos= -5.752213e+01, mass= 3.240761e+10, forceX= 7.090277e+08, forceY= 2.241724e+08, velX= -2.596878e+00, velY= -4.976779e+00
+particle xPos= 3.607672e+01, yPos= -2.230971e+01, mass= 4.926450e+10, forceX= -1.910905e+08, forceY= -8.875132e+07, velX= -2.454880e+00, velY= -1.403307e+00
+particle xPos= 2.337945e+01, yPos= -5.876705e+01, mass= 1.742607e+09, forceX= -2.149877e+07, forceY= 1.881378e+07, velX= 3.546512e+00, velY= -3.190745e+00
+particle xPos= -1.202976e+01, yPos= -4.127949e+01, mass= 4.010895e+10, forceX= -4.964385e+08, forceY= -1.542349e+08, velX= -2.297626e+00, velY= -1.471471e-01

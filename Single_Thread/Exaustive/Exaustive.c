@@ -54,6 +54,16 @@ void calculateTotalForce(particle *p1, int j)
     }
 }
 
+void printerFile(particle *p1)
+{
+    FILE* solution=fopen("solution.txt","w");
+    for (int i = 0; i < numberBody; i++)
+    {
+        fprintf(solution,"particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+    }
+    fclose(solution);
+}
+
 void printer(particle *p1)
 {
     for (int i = 0; i < numberBody; i++)
@@ -136,6 +146,8 @@ int main()
 
     printf("\n");
     printer(p1);
+
+    printerFile(p1);
 
     fclose(file);
     free(p1);
