@@ -28,13 +28,8 @@ int main(){
   while(fgets(line_st, MAX_LENGTH, st)){
     fgets(line_cuda, MAX_LENGTH, cuda);
 
-   // printf("%c",ch);
-    if(line_st[0]!=line_cuda[0]){
-      //printf("stocazzo");
-    }
-    int j = 2;
+    int j = 2; //particle xPos= -3.087411e+001, 
     for(int i = 2; i < sizeof(line_st); i++){
-      //printf ("i = %d\n", i);
       if(line_st[i] == 'e'){
         int t = i + 1;
        // printf("TTT = %d", t);
