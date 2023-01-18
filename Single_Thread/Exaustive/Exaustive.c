@@ -59,7 +59,7 @@ void printerFile(particle *p1)
     FILE* solution=fopen("solution.txt","w");
     for (int i = 0; i < numberBody; i++)
     {
-        fprintf(solution,"particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(solution);
 }
