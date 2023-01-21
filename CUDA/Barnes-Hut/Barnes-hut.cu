@@ -41,10 +41,12 @@ typedef struct quadTree
     particle *p;         // puntatore a una particella
     massCenter *mc;      // centro di massa per quadrante
     bool div;            // check della divisione dell' albero
+    /*
     struct quadTree *nw; // ramo nord ovest dell' albero guardando la suddivisione del quandrante
     struct quadTree *ne; // ramo nord est dell' albero guardando la suddivisione del quandrante
     struct quadTree *sw; // ramo sud ovest dell' albero guardando la suddivisione del quandrante
     struct quadTree *se; // ramo sud est dell' albero guardando la suddivisione del quandrante
+    */
                          //    _________________________
                          //   |          4 |          1 |
                          //   |    (NW)    |    (NE)    |
@@ -111,8 +113,12 @@ void compute(int time, particle *p1)
     int thread=statGPU();
     int block=(numberBody/thread)+1;
     particle *p1Dstart,*p1Dend;
+    quadTree *tree;
     cudaMalloc((void**)&p1Dstart,sizeof(particle) * numberBody);
     cudaMalloc((void**)&p1Dend,sizeof(particle) * numberBody);
+
+    cudaMalloc((void**)&tree,sizeof(quadTree) * numberBody*numberBody);
+
     cudaMemcpy(p1Dend,p1,sizeof(particle) * numberBody,cudaMemcpyHostToDevice);
 
     for(int i=0;i<time;i++){
@@ -121,9 +127,12 @@ void compute(int time, particle *p1)
         p1Dstart=p1Dend;
         p1Dend=temp;
 
-        //calculateTotalForce<<<block,thread,sizeof(particle)*thread>>>(p1Dstart,p1Dend,numberBody);
+        //createTree<<<?>>>(?);
         cudaDeviceSynchronize();
-        
+        //calculateCenterMass<<<?>>>(?);
+        cudaDeviceSynchronize();
+        //calculateMove<<<?>>>(?);
+        cudaDeviceSynchronize();
                                                                                             //printf("\ncambio\n");
     }
 
