@@ -12,5 +12,5 @@ int main(){
     fscanf(f,"%s",&c);
     char *stringEnd;
     double num = strtod(c, &stringEnd); 
-    printf("%e",num);  
+    printf("%e",num);
 }

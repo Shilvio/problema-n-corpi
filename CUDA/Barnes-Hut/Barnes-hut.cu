@@ -25,42 +25,6 @@ typedef struct particle
     double velY;   // velocità sull' asse y
 } particle;
 
-typedef struct massCenter
-{
-    double x;    // poszione x del centro di massa
-    double y;    // posizione y del centro di massa
-    double mass; // massa totale al centro di massa
-} massCenter;
-
-typedef struct quadTree
-{
-    char id[20];         // index del nodo utile solo al debug
-    double x;            // x del centro dell' albero
-    double y;            // y del centro del' albero
-    double s;            // dimensione
-    particle *p;         // puntatore a una particella
-    massCenter *mc;      // centro di massa per quadrante
-    bool div;            // check della divisione dell' albero
-    /*
-    struct quadTree *nw; // ramo nord ovest dell' albero guardando la suddivisione del quandrante
-    struct quadTree *ne; // ramo nord est dell' albero guardando la suddivisione del quandrante
-    struct quadTree *sw; // ramo sud ovest dell' albero guardando la suddivisione del quandrante
-    struct quadTree *se; // ramo sud est dell' albero guardando la suddivisione del quandrante
-    */
-                         //    _________________________
-                         //   |          4 |          1 |
-                         //   |    (NW)    |    (NE)    |
-                         //   |            |            |
-                         //   |     -+     |     ++     |
-                         //   |____________|____________|
-                         //   |          3 |          2 |
-                         //   |     --     |     +-     |
-                         //   |            |            |
-                         //   |    (SW)    |    (SE)    |
-                         //   |____________|____________|
-
-} quadTree;
-
 int statGPU() {
     int numberGPU;
     cudaGetDeviceCount(&numberGPU);
@@ -110,15 +74,20 @@ void printer(particle *p1)
 // calcolo il movimento delle particelle nel tempo richiesto
 void compute(int time, particle *p1)
 {
+    /*
     int thread=statGPU();
     int block=(numberBody/thread)+1;
+    */
+
+    //int sizeTree=numberBody*2+12000;
+
     particle *p1Dstart,*p1Dend;
-    quadTree *tree;
+
+    //gpuErrchk(cudaMalloc((void**)&tree,sizeof(quadTree) * sizeTree));
     cudaMalloc((void**)&p1Dstart,sizeof(particle) * numberBody);
     cudaMalloc((void**)&p1Dend,sizeof(particle) * numberBody);
-
-    cudaMalloc((void**)&tree,sizeof(quadTree) * numberBody*numberBody);
-
+    
+    
     cudaMemcpy(p1Dend,p1,sizeof(particle) * numberBody,cudaMemcpyHostToDevice);
 
     for(int i=0;i<time;i++){
@@ -127,7 +96,7 @@ void compute(int time, particle *p1)
         p1Dstart=p1Dend;
         p1Dend=temp;
 
-        //createTree<<<?>>>(?);
+        //createTree<<<1,4>>>(tree,p1Dstart,sizeTree);
         cudaDeviceSynchronize();
         //calculateCenterMass<<<?>>>(?);
         cudaDeviceSynchronize();
