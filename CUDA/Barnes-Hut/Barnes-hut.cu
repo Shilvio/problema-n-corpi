@@ -6,14 +6,19 @@
 
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
-double const G = 6.67384E-11; // costante gravitazione universale
-// double const G=1;
-double const THETA = 0.5; // thetha per il calcolo delle forze su particell
+
+__constant__ double G = 6.67384E-11; // costante gravitazione universale
+__constant__ double THETA = 0.5; // thetha per il calcolo delle forze su particell
+
+
+
 double maxSize = 6.162025e+070;
 // double maxSize = 100;
 // int count = 0;
+double *x,*y,*m;
+ //&p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY
 
-// struct particella
+//struct particella
 typedef struct particle
 {
     double x;      // posizione x
@@ -23,6 +28,7 @@ typedef struct particle
     double forceY; // forza applicata alla particella sull' asse y
     double velX;   // velocità sull' asse x
     double velY;   // velocità sull' asse y
+    
 } particle;
 
 int statGPU() {
@@ -78,23 +84,31 @@ void compute(int time, particle *p1)
     int thread=statGPU();
     int block=(numberBody/thread)+1;
     */
-
     //int sizeTree=numberBody*2+12000;
 
-    particle *p1Dstart,*p1Dend;
+    double *xP,*yP,*up,*down,*left,*right;
+    int *child;
 
-    //gpuErrchk(cudaMalloc((void**)&tree,sizeof(quadTree) * sizeTree));
-    cudaMalloc((void**)&p1Dstart,sizeof(particle) * numberBody);
-    cudaMalloc((void**)&p1Dend,sizeof(particle) * numberBody);
+    // allocazione della memoria a device
+    // gpuErrchk(); da aggiungere
+    cudaMalloc((void**)&xP,sizeof(particle) * numberBody);
+    cudaMalloc((void**)&yP,sizeof(particle) * numberBody);
+    cudaMalloc((void**)&up,sizeof(double));
+    cudaMalloc((void**)&down,sizeof(double));
+    cudaMalloc((void**)&left,sizeof(double));
+    cudaMalloc((void**)&right,sizeof(double));
+    cudaMalloc((void**)&child,sizeof(int)*(numberBody*2+12000)*4);    
     
-    
-    cudaMemcpy(p1Dend,p1,sizeof(particle) * numberBody,cudaMemcpyHostToDevice);
+    cudaMemcpy(xP,p1,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
+    cudaMemcpy(yP,p1,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
+    cudaMemset(up,maxSize,sizeof(double));
+    cudaMemset(down,-maxSize,sizeof(double));
+    cudaMemset(left,-maxSize,sizeof(double));
+    cudaMemset(right,maxSize,sizeof(double));
+    cudaMemset(&child[((numberBody*2+12000)*4)-1],-1,sizeof(int));
 
+    
     for(int i=0;i<time;i++){
-        
-        particle* temp=p1Dstart;
-        p1Dstart=p1Dend;
-        p1Dend=temp;
 
         //createTree<<<1,4>>>(tree,p1Dstart,sizeTree);
         cudaDeviceSynchronize();
@@ -104,8 +118,6 @@ void compute(int time, particle *p1)
         cudaDeviceSynchronize();
                                                                                             //printf("\ncambio\n");
     }
-
-    cudaMemcpy(p1,p1Dend,sizeof(particle) * numberBody,cudaMemcpyDeviceToHost);
     
 
 }
@@ -119,6 +131,9 @@ void getInput(FILE *file, particle *p1)
         // prendo i dati dal file
         fscanf(file, "%lf%lf%lf%lf%lf", &p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY);
         // imposto le forze iniziali a zero
+        x[i]= p1[i].x;
+        y[i]= p1[i].y;
+        m[i]= p1[i].mass;
         p1[i].forceX = 0;
         p1[i].forceY = 0;
         printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
@@ -145,9 +160,13 @@ int main()
 {
     // apro il file dove si trovano tutte le particelle
     FILE *file = initial();
-    // alloco la memoria per l'array che contierrà tutte le particelle (p1)
+    // alloco memoria per variabili host
     particle *p1 = (particle*) malloc(sizeof(particle) * numberBody);
-    // popolo l'array
+    x= (double*) malloc(sizeof(int)*numberBody);
+    y= (double*) malloc(sizeof(int)*numberBody);
+    m= (double*) malloc(sizeof(int)*numberBody);
+    //inizializzo array di indirizzi child
+    // popolo gli array
     getInput(file, p1);
 
     // calcolo il movimento delle particelle nel tempo richiesto

@@ -2,11 +2,9 @@
 #include <stdlib.h>
 #include <math.h>
 
+__device__ int h=0;
+
 __global__ void fun(){
-
-    __shared__ int h;
-
-    h=0;
 
     int point=atomicAdd(&h,1);
 
@@ -14,5 +12,5 @@ __global__ void fun(){
 }
 
 int main(){
-    fun<<<1,65>>>();
+    fun<<<3,5>>>();
 }
