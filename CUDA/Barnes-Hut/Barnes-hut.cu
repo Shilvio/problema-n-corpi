@@ -4,12 +4,22 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
 
 __constant__ double G = 6.67384E-11; // costante gravitazione universale
 __constant__ double THETA = 0.5; // thetha per il calcolo delle forze su particell
-
+__device__ int ppointer;
 
 
 double maxSize = 6.162025e+070;
@@ -30,6 +40,20 @@ typedef struct particle
     double velY;   // velocità sull' asse y
     
 } particle;
+
+__device__ int findCell(int x,int y){
+    printf("ppointer:%d\n",ppointer);
+}
+
+__global__ void createTree(double* xP,double* yP,double* up,double* down,double* left,double* right,int* child){
+    
+    int id=threadIdx.x+blockDim.x*blockIdx.x;
+    int cell=findCell(xP[id],yP[id]);
+}
+
+__global__ void setppointer(int num){
+    ppointer=num;
+}
 
 int statGPU() {
     int numberGPU;
@@ -88,11 +112,14 @@ void compute(int time, particle *p1)
 
     double *xP,*yP,*up,*down,*left,*right;
     int *child;
-
+    
     // allocazione della memoria a device
     // gpuErrchk(); da aggiungere
-    cudaMalloc((void**)&xP,sizeof(particle) * numberBody);
-    cudaMalloc((void**)&yP,sizeof(particle) * numberBody);
+    //cudaGetLastError
+    printf("ciao\n");
+    cudaMalloc((void**)&xP,sizeof(double)*numberBody);
+    printf("ciao\n");
+    cudaMalloc((void**)&yP,sizeof(double) * numberBody);
     cudaMalloc((void**)&up,sizeof(double));
     cudaMalloc((void**)&down,sizeof(double));
     cudaMalloc((void**)&left,sizeof(double));
@@ -107,18 +134,26 @@ void compute(int time, particle *p1)
     cudaMemset(right,maxSize,sizeof(double));
     cudaMemset(&child[((numberBody*2+12000)*4)-1],-1,sizeof(int));
 
+    setppointer<<<1,1>>>(((numberBody*2+12000)*4)-1);
+    cudaDeviceSynchronize();
     
     for(int i=0;i<time;i++){
-
-        //createTree<<<1,4>>>(tree,p1Dstart,sizeTree);
+        
+        createTree<<<4,1>>>(xP,yP,up,down,left,right,child);
         cudaDeviceSynchronize();
         //calculateCenterMass<<<?>>>(?);
-        cudaDeviceSynchronize();
+        //cudaDeviceSynchronize();
         //calculateMove<<<?>>>(?);
-        cudaDeviceSynchronize();
+        //cudaDeviceSynchronize();
                                                                                             //printf("\ncambio\n");
     }
-    
+    cudaFree(xP);
+    cudaFree(yP);
+    cudaFree(up);
+    cudaFree(down);
+    cudaFree(left);
+    cudaFree(right);
+    cudaFree(child);
 
 }
 
@@ -136,7 +171,7 @@ void getInput(FILE *file, particle *p1)
         m[i]= p1[i].mass;
         p1[i].forceX = 0;
         p1[i].forceY = 0;
-        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     // chiudo il file
     fclose(file);
@@ -172,9 +207,9 @@ int main()
     // calcolo il movimento delle particelle nel tempo richiesto
     compute(maxTime, p1);
     printf("\n");
-    printer(p1);
+    //printer(p1);
 
-    printerFile(p1);
+    //printerFile(p1);
     fclose(file);
     free(p1);
     exit(1);

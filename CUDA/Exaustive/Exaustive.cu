@@ -156,6 +156,9 @@ void compute(int time, particle *p1)
     }
 
     cudaMemcpy(p1,p1Dend,sizeof(particle) * numberBody,cudaMemcpyDeviceToHost);
+    cudaFree(p1Dstart);
+    cudaFree(p1Dend);
+    
     
 
 }
