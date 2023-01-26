@@ -14,16 +14,19 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
-int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
+double *x,*y,*m,*velX,*velY,*forceX,*forceY;
+double maxSize = 6.162025e+070;
+int numberBody, seed, maxTime = 3;
+
 __constant__ double G = 6.67384E-11; // costante gravitazione universale
 __constant__ double THETA = 0.5; // thetha per il calcolo delle forze su particell
 __device__ int ppointer;
 
-double maxSize = 6.162025e+070;
+
 // double maxSize = 100;
 // int count = 0;
-double *x,*y,*m,*velX,*velY,*forceX,*forceY;
+
  //&p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY
 
 
@@ -147,14 +150,14 @@ void compute(int time)
 // popolo l'array con le particelle nel file
 void getInput(FILE *file)
 {
-    x= (double*) malloc(sizeof(int)*numberBody);
-    y= (double*) malloc(sizeof(int)*numberBody);
-    m= (double*) malloc(sizeof(int)*numberBody);
+    x= (double*) malloc(sizeof(double)*numberBody);
+    y= (double*) malloc(sizeof(double)*numberBody);
+    m= (double*) malloc(sizeof(double)*numberBody);
     
-    velX= (double*) malloc(sizeof(int)*numberBody);
-    velY= (double*) malloc(sizeof(int)*numberBody);
-    forceX= (double*) malloc(sizeof(int)*numberBody);
-    forceY= (double*) malloc(sizeof(int)*numberBody);
+    velX= (double*) malloc(sizeof(double)*numberBody);
+    velY= (double*) malloc(sizeof(double)*numberBody);
+    forceX= (double*) malloc(sizeof(double)*numberBody);
+    forceY= (double*) malloc(sizeof(double)*numberBody);
     // prendo i dati per tutti i corpi
     for (int i = 0; i < numberBody; i++)
     {   
@@ -163,7 +166,7 @@ void getInput(FILE *file)
         // imposto le forze iniziali a zero
         forceX[i]=0;
         forceY[i]=0;
-        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
     // chiudo il file
     fclose(file);
