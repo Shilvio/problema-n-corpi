@@ -10,36 +10,23 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    if (code != cudaSuccess) 
    {
       fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
+      if (abort) getchar();
    }
 }
 
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
-
 __constant__ double G = 6.67384E-11; // costante gravitazione universale
 __constant__ double THETA = 0.5; // thetha per il calcolo delle forze su particell
 __device__ int ppointer;
 
-
 double maxSize = 6.162025e+070;
 // double maxSize = 100;
 // int count = 0;
-double *x,*y,*m;
+double *x,*y,*m,*velX,*velY,*forceX,*forceY;
  //&p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY
 
-//struct particella
-typedef struct particle
-{
-    double x;      // posizione x
-    double y;      // posizione y
-    double mass;   // massa
-    double forceX; // forza applicata alla particella sull' asse x
-    double forceY; // forza applicata alla particella sull' asse y
-    double velX;   // velocità sull' asse x
-    double velY;   // velocità sull' asse y
-    
-} particle;
+
 
 __device__ int findCell(int x,int y){
     printf("ppointer:%d\n",ppointer);
@@ -65,7 +52,7 @@ int statGPU() {
 
     cudaDeviceProp pr;
     cudaGetDeviceProperties(&pr,0);//thread per blocco 877
-    int f = pr.sharedMemPerBlock/sizeof(particle); //massima dim memoria per blocco/grandezza struct particella 
+    int f = pr.sharedMemPerBlock/sizeof(double); //massima dim memoria per blocco/grandezza struct particella 
     //printf("\n%d\n",f);
 
     if(pr.maxThreadsPerMultiProcessor%f){
@@ -79,11 +66,11 @@ int statGPU() {
         
         f=h;
     }
-    printf("\n%d\n",f);
+    //printf("\n%d\n",f);
     return f;
 }
 
-void printerFile(particle *p1)
+/*void printerFile(particle *p1)
 {
     FILE* solution=fopen("solution.txt","w");
     for (int i = 0; i < numberBody; i++)
@@ -91,18 +78,18 @@ void printerFile(particle *p1)
         fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(solution);
-}
+}*/
 
-void printer(particle *p1)
+void printer()
 {
     for (int i = 0; i < numberBody; i++)
     {
-        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        printf("particle xPos= %e, yPos= %e, mass= %e\n", x[i], y[i], m[i]);//, forceX, forceY, velX, velY); , forceX= %e, forceY= %e, velX= %e, velY= %e
     }
 }
 
 // calcolo il movimento delle particelle nel tempo richiesto
-void compute(int time, particle *p1)
+void compute(int time)
 {
     /*
     int thread=statGPU();
@@ -117,8 +104,8 @@ void compute(int time, particle *p1)
     // gpuErrchk(); da aggiungere
     //cudaGetLastError
     printf("ciao\n");
-    cudaMalloc((void**)&xP,sizeof(double)*numberBody);
-    printf("ciao\n");
+    
+    gpuErrchk(cudaMalloc((void**)&xP,sizeof(double) * numberBody));
     cudaMalloc((void**)&yP,sizeof(double) * numberBody);
     cudaMalloc((void**)&up,sizeof(double));
     cudaMalloc((void**)&down,sizeof(double));
@@ -126,8 +113,8 @@ void compute(int time, particle *p1)
     cudaMalloc((void**)&right,sizeof(double));
     cudaMalloc((void**)&child,sizeof(int)*(numberBody*2+12000)*4);    
     
-    cudaMemcpy(xP,p1,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
-    cudaMemcpy(yP,p1,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
+    cudaMemcpy(xP,x,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
+    cudaMemcpy(yP,y,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
     cudaMemset(up,maxSize,sizeof(double));
     cudaMemset(down,-maxSize,sizeof(double));
     cudaMemset(left,-maxSize,sizeof(double));
@@ -158,19 +145,24 @@ void compute(int time, particle *p1)
 }
 
 // popolo l'array con le particelle nel file
-void getInput(FILE *file, particle *p1)
+void getInput(FILE *file)
 {
+    x= (double*) malloc(sizeof(int)*numberBody);
+    y= (double*) malloc(sizeof(int)*numberBody);
+    m= (double*) malloc(sizeof(int)*numberBody);
+    
+    velX= (double*) malloc(sizeof(int)*numberBody);
+    velY= (double*) malloc(sizeof(int)*numberBody);
+    forceX= (double*) malloc(sizeof(int)*numberBody);
+    forceY= (double*) malloc(sizeof(int)*numberBody);
     // prendo i dati per tutti i corpi
     for (int i = 0; i < numberBody; i++)
-    {
+    {   
         // prendo i dati dal file
-        fscanf(file, "%lf%lf%lf%lf%lf", &p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY);
+        fscanf(file, "%lf%lf%lf%lf%lf", &x[i], &y[i], &m[i], &velX[i], &velY[i]);
         // imposto le forze iniziali a zero
-        x[i]= p1[i].x;
-        y[i]= p1[i].y;
-        m[i]= p1[i].mass;
-        p1[i].forceX = 0;
-        p1[i].forceY = 0;
+        forceX[i]=0;
+        forceY[i]=0;
         //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     // chiudo il file
@@ -196,21 +188,16 @@ int main()
     // apro il file dove si trovano tutte le particelle
     FILE *file = initial();
     // alloco memoria per variabili host
-    particle *p1 = (particle*) malloc(sizeof(particle) * numberBody);
-    x= (double*) malloc(sizeof(int)*numberBody);
-    y= (double*) malloc(sizeof(int)*numberBody);
-    m= (double*) malloc(sizeof(int)*numberBody);
     //inizializzo array di indirizzi child
     // popolo gli array
-    getInput(file, p1);
+    getInput(file);
 
     // calcolo il movimento delle particelle nel tempo richiesto
-    compute(maxTime, p1);
+    compute(maxTime);
     printf("\n");
     //printer(p1);
 
     //printerFile(p1);
     fclose(file);
-    free(p1);
     exit(1);
 }
