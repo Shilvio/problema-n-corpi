@@ -4,200 +4,194 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-{
-   if (code != cudaSuccess) 
-   {
-      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) getchar();
-   }
-}
-
-int numberBody, seed, maxTime = 3;
+// costanti e variabili host
+int maxCells, numberBody, seed, maxTime = 1;
 char fileInput[] = "../../Generate/particle.txt";
-__constant__ double G = 6.67384E-11; // costante gravitazione universale
-__constant__ double THETA = 0.5; // thetha per il calcolo delle forze su particell
-__device__ int ppointer;
-
+double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 double maxSize = 6.162025e+070;
-// double maxSize = 100;
-// int count = 0;
-double *x,*y,*m,*velX,*velY,*forceX,*forceY;
- //&p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY
 
+// costanti e variabili gpu
+__constant__ double G = 6.67384E-11; // costante gravitazione universale
+__constant__ double THETA = 0.5;     // thetha per il calcolo delle forze su particell
+__device__ int pPointer;
 
-
-__device__ int findCell(int x,int y){
-    printf("ppointer:%d\n",ppointer);
-}
-
-__global__ void createTree(double* xP,double* yP,double* up,double* down,double* left,double* right,int* child){
-    
-    int id=threadIdx.x+blockDim.x*blockIdx.x;
-    int cell=findCell(xP[id],yP[id]);
-}
-
-__global__ void setppointer(int num){
-    ppointer=num;
-}
-
-int statGPU() {
-    int numberGPU;
-    cudaGetDeviceCount(&numberGPU);
-    if(numberGPU<1){
-        printf("non sono state rilevate GPU adeguate per esegiure il programma");
-        exit(1);
+///////////////////////////////////////////GPU ERRORCHECK///////////////////////////////////////////////////////////////
+#define gpuErrchk(ans)                        \
+    {                                         \
+        gpuAssert((ans), __FILE__, __LINE__); \
     }
-
-    cudaDeviceProp pr;
-    cudaGetDeviceProperties(&pr,0);//thread per blocco 877
-    int f = pr.sharedMemPerBlock/sizeof(double); //massima dim memoria per blocco/grandezza struct particella 
-    //printf("\n%d\n",f);
-
-    if(pr.maxThreadsPerMultiProcessor%f){
-
-        int h=pr.maxThreadsPerMultiProcessor;
-
-        while (h>f)
-        {
-            h=h/2;
-        }
-        
-        f=h;
-    }
-    //printf("\n%d\n",f);
-    return f;
-}
-
-/*void printerFile(particle *p1)
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
 {
-    FILE* solution=fopen("solution.txt","w");
+    if (code != cudaSuccess)
+    {
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort)
+            exit(code);
+    }
+}
+__device__ int h = 0;
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// funzioni gpu
+
+// funzione kernel per trovare la particella da inserire
+__device__ int findCell(int x, int y)
+{
+    printf("ppointer:%d\n", pPointer);
+}
+// funzione kernel per creare l'albero
+__global__ void createTree(double *xP, double *yP, double *up, double *down, double *left, double *right, int *child)
+{
+
+    int id = threadIdx.x + blockDim.x * blockIdx.x;
+    int cell = findCell(xP[id], yP[id]);
+}
+// funzione kernel per inizializzare la variabile globale puntatore
+__global__ void setPointer(int num)
+{
+    pPointer = num;
+}
+
+// funzioni host
+
+void getInput(FILE *file)
+{
+    x = (double *)malloc(sizeof(double) * numberBody);
+    y = (double *)malloc(sizeof(double) * numberBody);
+    m = (double *)malloc(sizeof(double) * numberBody);
+
+    velX = (double *)malloc(sizeof(double) * numberBody);
+    velY = (double *)malloc(sizeof(double) * numberBody);
+    forceX = (double *)malloc(sizeof(double) * numberBody);
+    forceY = (double *)malloc(sizeof(double) * numberBody);
+    // prendo i dati per tutti i corpi
+    printf("\n");
     for (int i = 0; i < numberBody; i++)
     {
-        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
-    }
-    fclose(solution);
-}*/
+        // prendo i dati dal file
 
-void printer()
-{
-    for (int i = 0; i < numberBody; i++)
-    {
-        printf("particle xPos= %e, yPos= %e, mass= %e\n", x[i], y[i], m[i]);//, forceX, forceY, velX, velY); , forceX= %e, forceY= %e, velX= %e, velY= %e
+        fscanf(file, "%lf%lf%lf%lf%lf", &x[i], &y[i], &m[i], &velX[i], &velY[i]);
+
+        // imposto le forze iniziali a zero
+        forceX[i] = 0;
+        forceY[i] = 0;
+        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
+    printf("\n");
+    // chiudo il file
+    fclose(file);
 }
 
-// calcolo il movimento delle particelle nel tempo richiesto
+FILE *initial()
+{
+
+    // mi apro il file in lettura
+    FILE *file = fopen(fileInput, "r");
+    // prendo il seed
+    fscanf(file, "%d", &seed);
+    printf("\n");
+    printf("seed: %d\n", seed);
+    // prendo il numero di corpi
+    fscanf(file, "%d", &numberBody);
+    printf("numero particelle: %d\n", numberBody);
+    // calcolo max cell offset
+    maxCells = ((numberBody * 2 + 12000) * 4);
+    return file;
+}
+
 void compute(int time)
 {
-    /*
-    int thread=statGPU();
-    int block=(numberBody/thread)+1;
-    */
-    //int sizeTree=numberBody*2+12000;
-
-    double *xP,*yP,*up,*down,*left,*right;
+    printf("entro in compute\n");
+    double *xP, *yP, *up, *down, *left, *right;
     int *child;
-    
-    // allocazione della memoria a device
-    // gpuErrchk(); da aggiungere
-    //cudaGetLastError
-    printf("ciao\n");
-    
-    gpuErrchk(cudaMalloc((void**)&xP,sizeof(double) * numberBody));
-    cudaMalloc((void**)&yP,sizeof(double) * numberBody);
-    cudaMalloc((void**)&up,sizeof(double));
-    cudaMalloc((void**)&down,sizeof(double));
-    cudaMalloc((void**)&left,sizeof(double));
-    cudaMalloc((void**)&right,sizeof(double));
-    cudaMalloc((void**)&child,sizeof(int)*(numberBody*2+12000)*4);    
-    
-    cudaMemcpy(xP,x,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
-    cudaMemcpy(yP,y,sizeof(double) * numberBody,cudaMemcpyHostToDevice);
-    cudaMemset(up,maxSize,sizeof(double));
-    cudaMemset(down,-maxSize,sizeof(double));
-    cudaMemset(left,-maxSize,sizeof(double));
-    cudaMemset(right,maxSize,sizeof(double));
-    cudaMemset(&child[((numberBody*2+12000)*4)-1],-1,sizeof(int));
 
-    setppointer<<<1,1>>>(((numberBody*2+12000)*4)-1);
-    cudaDeviceSynchronize();
-    
-    for(int i=0;i<time;i++){
-        
-        createTree<<<4,1>>>(xP,yP,up,down,left,right,child);
+    printf("inizio l'allocazione su device: \n");
+    printf("\n");
+    cudaMalloc((void **)&xP, sizeof(double) * numberBody);
+    printf("malloc 0 funzionante\n");
+    gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * numberBody));
+    printf("malloc 1 funzionante\n");
+    gpuErrchk(cudaMalloc((void **)&up, sizeof(double)));
+    printf("malloc 2 funzionante\n");
+    gpuErrchk(cudaMalloc((void **)&down, sizeof(double)));
+    printf("malloc 3 funzionante\n");
+    gpuErrchk(cudaMalloc((void **)&left, sizeof(double)));
+    printf("malloc 4 funzionante\n");
+    gpuErrchk(cudaMalloc((void **)&right, sizeof(double)));
+    printf("malloc 5 funzionante\n");
+    gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));
+    printf("malloc 6 funzionante\n");
+    printf("\n");
+    // copio array delle posizioni x e y delle particelle
+    cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
+    printf("array x particelle copiato \n");
+    cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
+    printf("array y particelle copiato \n");
+    printf("\n");
+    // alloco le 4 posizioni iniziali della griglia
+    cudaMemset(up, maxSize, sizeof(double));
+    cudaMemset(down, -maxSize, sizeof(double));
+    cudaMemset(left, -maxSize, sizeof(double));
+    cudaMemset(right, maxSize, sizeof(double));
+    printf("griglia copiata \n");
+    printf("\n");
+    // setto array dei figli a -1 (null)
+    cudaMemset(&child[maxCells - 1], -1, sizeof(int));
+    printf("array childs inizializzato \n");
+    printf("\n");
+    // invoco la funzione per settarre la variabile puntatore globale nel device
+    setPointer<<<1, 1>>>(maxCells - 1);
+    printf("puntatore settato \n");
+    printf("\n");
+    gpuErrchk(cudaDeviceSynchronize());
+    printf("sincronizzo kernel");
+    printf("\n");
+
+    // eseguo funzioni cuda
+    for (int i = 0; i < time; i++)
+    {
+
+        // funzione che genera l'albero
+        createTree<<<4, 1>>>(xP, yP, up, down, left, right, child);
         cudaDeviceSynchronize();
-        //calculateCenterMass<<<?>>>(?);
-        //cudaDeviceSynchronize();
-        //calculateMove<<<?>>>(?);
-        //cudaDeviceSynchronize();
-                                                                                            //printf("\ncambio\n");
+        printf("albero generato, e kernel sincronizzati \n");
+
+        // calculateCenterMass<<<?>>>(?);
+        // cudaDeviceSynchronize();
+        // calculateMove<<<?>>>(?);
+        // cudaDeviceSynchronize();
     }
-    cudaFree(xP);
-    cudaFree(yP);
+
+    // libero memoria
     cudaFree(up);
     cudaFree(down);
     cudaFree(left);
     cudaFree(right);
     cudaFree(child);
-
+    cudaFree(xP);
+    cudaFree(yP);
+    printf("memoria liberata sul device \n");
 }
 
-// popolo l'array con le particelle nel file
-void getInput(FILE *file)
+// stampa le particelle
+void printer()
 {
-    x= (double*) malloc(sizeof(int)*numberBody);
-    y= (double*) malloc(sizeof(int)*numberBody);
-    m= (double*) malloc(sizeof(int)*numberBody);
-    
-    velX= (double*) malloc(sizeof(int)*numberBody);
-    velY= (double*) malloc(sizeof(int)*numberBody);
-    forceX= (double*) malloc(sizeof(int)*numberBody);
-    forceY= (double*) malloc(sizeof(int)*numberBody);
-    // prendo i dati per tutti i corpi
+    printf("\n");
     for (int i = 0; i < numberBody; i++)
-    {   
-        // prendo i dati dal file
-        fscanf(file, "%lf%lf%lf%lf%lf", &x[i], &y[i], &m[i], &velX[i], &velY[i]);
-        // imposto le forze iniziali a zero
-        forceX[i]=0;
-        forceY[i]=0;
-        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+    {
+        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
-    // chiudo il file
-    fclose(file);
-}
 
-// aprire il file e prendere i primi valori (seed e numero di corpi)
-FILE *initial()
-{
-    // mi apro il file in lettura
-    FILE *file = fopen(fileInput, "r");
-    // prendo il seed
-    fscanf(file, "%d", &seed);
-    printf("%d\n", seed);
-    // prendo il numero di corpi
-    fscanf(file, "%d", &numberBody);
-    printf("%d\n", numberBody);
-    return file;
+    printf("\n");
 }
 
 int main()
 {
-    // apro il file dove si trovano tutte le particelle
-    FILE *file = initial();
-    // alloco memoria per variabili host
-    //inizializzo array di indirizzi child
-    // popolo gli array
-    getInput(file);
-
-    // calcolo il movimento delle particelle nel tempo richiesto
+    // avvio getInput
+    getInput(initial());
+    // avvio compute
+    printf("avvio compute\n");
     compute(maxTime);
-    printf("\n");
-    //printer(p1);
-
-    //printerFile(p1);
-    fclose(file);
-    exit(1);
+    // stampo i risultati del calcolo
+    printer();
 }
