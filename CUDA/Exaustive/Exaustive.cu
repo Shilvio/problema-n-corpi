@@ -32,6 +32,10 @@ int statGPU() {
     int f = pr.sharedMemPerBlock/sizeof(particle); //massima dim memoria per blocco/grandezza struct particella 
     //printf("\n%d\n",f);
 
+    if(f > pr.maxThreadsPerBlock){
+        f=pr.maxThreadsPerBlock;
+    }
+
     if(pr.maxThreadsPerMultiProcessor%f){
 
         int h=pr.maxThreadsPerMultiProcessor;
@@ -72,6 +76,10 @@ __global__ void calculateTotalForce(particle *p1Start,particle* p1End,int tot)
     int sizeMAx=blockDim.x;
     extern __shared__ particle temp[];
     int tId=blockIdx.x*blockDim.x+threadIdx.x;
+
+    if(tId>=tot){
+        return;
+    }
 
     int ID=threadIdx.x;
     particle me=p1Start[tId];

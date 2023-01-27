@@ -184,6 +184,15 @@ void printer()
 
     printf("\n");
 }
+// stampa i risultati su solution.txt
+void printerFile(){
+    FILE* solution=fopen("solution.txt","w");
+    for (int i = 0; i < numberBody; i++)
+    {
+        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
+    }
+    fclose(solution);
+}
 
 int main()
 {

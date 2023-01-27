@@ -1,3 +1,26 @@
+/*
+funziona con i file scritti dalla seguente funzione:
+
+void printerFile(particle *p1)
+{
+    FILE* solution=fopen("solution.txt","w");
+    for (int i = 0; i < numberBody; i++)
+    {
+        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+    }
+    fclose(solution);
+}
+void printerFile()
+{
+    FILE* solution=fopen("solution.txt","w");
+    for (int i = 0; i < numberBody; i++)
+    {
+        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
+    }
+    fclose(solution);
+}
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,25 +46,13 @@ char mpi[]="../MPI";
 char st[]="../Single_Thread";
 char barnes_hut[]="/Barnes-Hut/solution.txt";
 char exaustive[]="/Exaustive/solution.txt";
-/*
-funziona con i file scritti dalla seguente funzione:
-
-void printerFile(particle *p1)
-{
-    FILE* solution=fopen("solution.txt","w");
-    for (int i = 0; i < numberBody; i++)
-    {
-        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
-    }
-    fclose(solution);
-}
-*/
+char exaustiveArrays[]="/Exaustive/solutionArray.txt";
 
 //restituisce 1 se i risultati combaciano, 0 altrimenti
 int main(){
   //caricamento dei file
-  reference_file = fopen(strcat(st,exaustive),"r"); //selezione path per il file di riferimento (inseriteli a mano e non rompete i coglioni)
-  compared_file = fopen(strcat(cuda,exaustive),"r");//selezione path per il file da verificare
+  reference_file = fopen(strcat(cuda,exaustive),"r"); //selezione path per il file di riferimento (inseriteli a mano e non rompete i coglioni)
+  compared_file = fopen(strcat(cuda,exaustiveArrays),"r");//selezione path per il file da verificare
   //verifa esistenza file
   if (reference_file==NULL || compared_file==NULL){ //se uno dei file non esiste interrompi esecuzione
     printf("-> One of Files does Not Exist ! <-");

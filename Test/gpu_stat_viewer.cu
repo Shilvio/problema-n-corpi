@@ -15,7 +15,7 @@ int statGPU()
     {
         printf("non sono state rilevate GPU adeguate per esegiure il programma");
         exit(1);
-    }
+    } 
 
     cudaDeviceProp pr;
     cudaGetDeviceProperties(&pr, 0); // thread per blocco 877
