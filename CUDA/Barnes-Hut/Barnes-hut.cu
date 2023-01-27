@@ -35,16 +35,92 @@ __device__ int h = 0;
 // funzioni gpu
 
 // funzione kernel per trovare la particella da inserire
-__device__ int findCell(int x, int y)
-{
-    printf("ppointer:%d\n", pPointer);
+__device__ int findCell(int body, double x, double y, double up, double down, double left, double right, int *child,int cell,int numBody)
+{   
+    int father=cell;
+    int childPath = 0;
+    //    _________________________
+    //   |          3 |          1 |
+    //   |    (NW)    |    (NE)    |
+    //   |            |            |
+    //   |     -+     |     ++     |
+    //   |____________|____________|
+    //   |          2 |          0 |
+    //   |     --     |     +-     |
+    //   |            |            |
+    //   |    (SW)    |    (SE)    |
+    //   |____________|____________|
+    //
+    if(x<=0.5*(left+right)){
+        //+2
+        childPath +=2;
+        right = 0.5*(left+right);
+    } else {
+        //+0
+        left = 0.5*(left+right);
+    }
+    if(y>0.5*(up+down)){
+        //+1
+        childPath +=1;
+        down = 0.5*(up+down);
+    }else{
+        //+0
+        up = 0.5*(up+down);
+    }  
+
+    cell=child[cell-childPath];
+
+    // ciclo fino a che non trovo una foglia
+    while(cell >= numBody){
+        
+        father = cell;
+        childPath=0;
+
+        if(x<=0.5*(left+right)){
+            //+2
+            childPath +=2;
+            right = 0.5*(left+right);
+        } else {
+            //+0
+            left = 0.5*(left+right);
+        }
+        if(y>0.5*(up+down)){
+            //+1
+            childPath +=1;
+            down = 0.5*(up+down);
+        }else{
+            //+0
+            up = 0.5*(up+down);
+        }  
+
+        //Possibbile creazione di centro di massa
+        cell = child[cell - childPath];
+    }
+    
+    if (cell != -2){
+        
+        if(atomicCAS(&child[father],cell,-2)==cell){
+            if(cell == -1){
+                child[father] = cell;
+            }else{
+                
+            }
+        }
+    }
+
+
+
 }
 // funzione kernel per creare l'albero
-__global__ void createTree(double *xP, double *yP, double *up, double *down, double *left, double *right, int *child)
+__global__ void createTree(double *xP, double *yP, double up, double down, double left, double right, int *child,int dimMax,int numBody)
 {
 
     int id = threadIdx.x + blockDim.x * blockIdx.x;
-    int cell = findCell(xP[id], yP[id]);
+    // uccido il thread che non deve inserire particelle
+    if(id>numBody){
+        return;
+    }
+    int cell = findCell(id,xP[id], yP[id], up, down, left, right, child, dimMax, numBody);
 }
 // funzione kernel per inizializzare la variabile globale puntatore
 __global__ void setPointer(int num)
@@ -102,7 +178,7 @@ FILE *initial()
 void compute(int time)
 {
     printf("entro in compute\n");
-    double *xP, *yP, *up, *down, *left, *right;
+    double *xP, *yP, up=maxSize, down=-maxSize, left=-maxSize, right=maxSize;
     int *child;
 
     printf("inizio l'allocazione su device: \n");
@@ -111,16 +187,8 @@ void compute(int time)
     printf("malloc 0 funzionante\n");
     gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * numberBody));
     printf("malloc 1 funzionante\n");
-    gpuErrchk(cudaMalloc((void **)&up, sizeof(double)));
-    printf("malloc 2 funzionante\n");
-    gpuErrchk(cudaMalloc((void **)&down, sizeof(double)));
-    printf("malloc 3 funzionante\n");
-    gpuErrchk(cudaMalloc((void **)&left, sizeof(double)));
-    printf("malloc 4 funzionante\n");
-    gpuErrchk(cudaMalloc((void **)&right, sizeof(double)));
-    printf("malloc 5 funzionante\n");
     gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));
-    printf("malloc 6 funzionante\n");
+    printf("malloc 2 funzionante\n");
     printf("\n");
     // copio array delle posizioni x e y delle particelle
     cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
@@ -128,15 +196,11 @@ void compute(int time)
     cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
     printf("array y particelle copiato \n");
     printf("\n");
-    // alloco le 4 posizioni iniziali della griglia
-    cudaMemset(up, maxSize, sizeof(double));
-    cudaMemset(down, -maxSize, sizeof(double));
-    cudaMemset(left, -maxSize, sizeof(double));
-    cudaMemset(right, maxSize, sizeof(double));
-    printf("griglia copiata \n");
-    printf("\n");
     // setto array dei figli a -1 (null)
-    cudaMemset(&child[maxCells - 1], -1, sizeof(int));
+    cudaMemset(&child[ maxCells - 1], -1, sizeof(int));
+    cudaMemset(&child[ maxCells - 2], -1, sizeof(int));
+    cudaMemset(&child[ maxCells - 3], -1, sizeof(int));
+    cudaMemset(&child[ maxCells - 4], -1, sizeof(int));
     printf("array childs inizializzato \n");
     printf("\n");
     // invoco la funzione per settarre la variabile puntatore globale nel device
@@ -152,7 +216,7 @@ void compute(int time)
     {
 
         // funzione che genera l'albero
-        createTree<<<4, 1>>>(xP, yP, up, down, left, right, child);
+        createTree<<<4, 1>>>(xP, yP, up, down, left, right, child, maxCells-1, numberBody);
         cudaDeviceSynchronize();
         printf("albero generato, e kernel sincronizzati \n");
 
@@ -163,10 +227,6 @@ void compute(int time)
     }
 
     // libero memoria
-    cudaFree(up);
-    cudaFree(down);
-    cudaFree(left);
-    cudaFree(right);
     cudaFree(child);
     cudaFree(xP);
     cudaFree(yP);
