@@ -1,6 +1,6 @@
 <img src="https://user-images.githubusercontent.com/63518174/210822356-9cfed022-b237-43fe-af06-ab5266f65b31.png" alt="drawing" width="200"/>
 
-Demetryo Grad
+Dmytro Grad
 
 Matteo Bernardo
 
@@ -36,14 +36,14 @@ Un altro approccio per ridurre drasticamente il numero di calcoli che deve svolg
 
 In queste simulazioni verrà usato un albero a **4 nodi** per radice, detto **quadTree** e le simulazioni verranno eseguite su piano bidimensionale.
 
-l' algoritmo cponsiste nel dividere la regione di spazio dove sono contenute le particelle in 4 parti, continuare ricorsivamente la divisione fino a raggiungere la capacità di una particella per quandrante.
+l' algoritmo consiste nel dividere la regione di spazio dove sono contenute le particelle in 4 parti, continuare ricorsivamente la divisione fino a raggiungere la capacità di una particella per quandrante.
 
 Si procede calcolando il centro di massa di ogni quadrante dell' albero partendo dalle foglie fino a alla radice, per ogni centro di massa **cm**.
-Ogni **cm** è coposto da un valore che indica la mass e 2 valori che indicano la posizione del suo epicentro (nel caso di una simulazione bidimensionale), per ogni quadrante verrà calcolato come:
+Ogni **cm** è coposto da un valore che indica la massa e 2 valori che indicano la posizione del suo epicentro (nel caso di una simulazione bidimensionale), per ogni quadrante verrà calcolato come:
 
 - in caso ci sia una particella sola nel quadrante ergo nel caso si arrivi ad una foglia : il **cm** prende come parametri la massa e i valori di posizione della particella stessa.
    
-- in caso si stesse esplorando una radice e quindi ci siano più cm per quandrnte, perchè avente figli:
+- in caso si stesse esplorando una radice e quindi ci siano più cm per quandrante, perchè avente figli:
 
   -  per determinare la massa, vengono presi i **cm** deggli **n** figli e sommati tra loro.
     
