@@ -1,6 +1,7 @@
 /*
-funziona con i file scritti dalla seguente funzione:
+funziona con i file scritti dalle seguenti funzioni:
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void printerFile(particle *p1)
 {
     FILE* solution=fopen("solution.txt","w");
@@ -10,6 +11,7 @@ void printerFile(particle *p1)
     }
     fclose(solution);
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void printerFile()
 {
     FILE* solution=fopen("solution.txt","w");
@@ -19,8 +21,8 @@ void printerFile()
     }
     fclose(solution);
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,6 +42,9 @@ char comp_char = ' ';
 //puntatori per i file
 FILE *reference_file;
 FILE *compared_file;
+//array per contenere i path 
+char ref_path[MAX_LENGTH]="";
+char com_path[MAX_LENGTH]="";
 //path delle varie cartelle
 char cuda[]="../CUDA";
 char mpi[]="../MPI";
@@ -47,15 +52,38 @@ char st[]="../Single_Thread";
 char barnes_hut[]="/Barnes-Hut/solution.txt";
 char exaustive[]="/Exaustive/solution.txt";
 char exaustiveArrays[]="/Exaustive/solutionArray.txt";
-
+//compositore path per apertura file
+void path_composer(char * dest, char *first, char *second){
+  strcat(dest, first);
+  strcat(dest, second);
+}
 //restituisce 1 se i risultati combaciano, 0 altrimenti
 int main(){
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  //creazione indirizzi per apertura file 
+  path_composer(ref_path, st, exaustive);//selezione path per il file di riferimento (inseriteli a mano e non rompete i coglioni)
+  path_composer(com_path, cuda, exaustiveArrays);//selezione path per il file da verificare
+
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   //caricamento dei file
-  reference_file = fopen(strcat(cuda,exaustive),"r"); //selezione path per il file di riferimento (inseriteli a mano e non rompete i coglioni)
-  compared_file = fopen(strcat(cuda,exaustiveArrays),"r");//selezione path per il file da verificare
+  reference_file = fopen(ref_path,"r");
+  compared_file = fopen(com_path,"r");
   //verifa esistenza file
   if (reference_file==NULL || compared_file==NULL){ //se uno dei file non esiste interrompi esecuzione
-    printf("-> One of Files does Not Exist ! <-");
+    if (reference_file==NULL && compared_file==NULL){
+      printf("-> None of Files does Exist ! <-");
+    }
+    else if (reference_file==NULL){
+      printf("-> First File does Not Exist ! <-");
+    }
+    else if (compared_file==NULL){
+      printf("-> Second File does Not Exist ! <-");
+    }
     return 0;
   }
   //lettura riga per riga
@@ -120,6 +148,6 @@ int main(){
   }//altrimenti no
   printf("\n!!! Results Are Different !!!\n\n");
   //indico riga, sezione, caratteri e le righe stesse dove si verifica la differenza
-  printf("line %d, section %d\nrefe_line[%d]='%c'\ncomp_line[%d]='%c'\n%s%s\n",line,1+section-((line-1)*7),i,ref_char,j,comp_char,reference_line,compared_line);
+  printf("line %d, section %d\nref_line[%d]='%c'\ncom_line[%d]='%c'\n%s%s\n",line,1+section-((line-1)*7),i,ref_char,j,comp_char,reference_line,compared_line);
   return 0;
 }
