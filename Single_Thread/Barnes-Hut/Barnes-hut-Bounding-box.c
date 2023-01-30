@@ -7,11 +7,13 @@
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
-// double const G=1;
-double const THETA = 0.5; // thetha per il calcolo delle forze su particell
-double maxSize = 6.162025e+070;
-double left,right,up,down;
-// double maxSize = 100;
+double const THETA = 0.5;     // thetha per il calcolo delle forze su particell
+double maxSize;
+double horizontal, vertical;
+
+#define min(i, j) (((i) < (j)) ? (i) : (j))
+#define max(i, j) (((i) > (j)) ? (i) : (j))
+
 // int count = 0;
 
 // struct particella
@@ -60,13 +62,19 @@ typedef struct quadTree
 
 } quadTree;
 
-void boundingBox(particle* p1){
-    
-    for (int i = 1; i < numberBody; i++)
-    {  
-        	right = max(p1[i].x,p1[i-1].x);
+void boundingBox(particle *p1)
+{
+    horizontal = fabs(p1[0].x);
+    vertical = fabs(p1[0].y);
 
-    } 
+    for (int i = 1; i < numberBody; i++)
+    {
+        horizontal = max(horizontal, fabs(p1[i].x));
+
+        vertical = max(vertical, fabs(p1[i].y));
+    }
+
+    maxSize = max(horizontal, vertical) + 1;
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -409,6 +417,7 @@ void compute(particle *p1, int time)
 
     for (int j = 0; j < time; j++)
     {
+        boundingBox(p1);
         quadTree *c = (quadTree *)malloc(sizeof(quadTree));
 
         initialQuad(c);
@@ -446,7 +455,6 @@ int main()
     FILE *file = initial();                               // apro il file
     particle *p1 = malloc(sizeof(particle) * numberBody); // alloco la memoria per l'array che conterrà tutte le particelle (p1)
     getInput(file, p1);                                   // lancio lo script per recuperare le particelle
-
     // printer(c,0);                                      // stampo in caso di debug
     printf("\n");
 
