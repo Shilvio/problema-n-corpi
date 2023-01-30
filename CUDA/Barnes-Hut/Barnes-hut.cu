@@ -35,7 +35,7 @@ __device__ int h = 0;
 // funzioni gpu
 
 // funzione kernel per trovare la particella da inserire
-__device__ int findCell(int body, double x, double y, double up, double down, double left, double right, int *child,int cell,int numBody)
+__device__ int findCell(int body, double* x, double* y, double up, double down, double left, double right, int *child,int cell,int numBody)
 {   
     int father=cell;
     int childPath = 0;
@@ -51,7 +51,7 @@ __device__ int findCell(int body, double x, double y, double up, double down, do
     //   |    (SW)    |    (SE)    |
     //   |____________|____________|
     //
-    if(x<=0.5*(left+right)){
+    if(x[body]<=0.5*(left+right)){
         //+2
         childPath +=2;
         right = 0.5*(left+right);
@@ -59,7 +59,7 @@ __device__ int findCell(int body, double x, double y, double up, double down, do
         //+0
         left = 0.5*(left+right);
     }
-    if(y>0.5*(up+down)){
+    if(y[body]>0.5*(up+down)){
         //+1
         childPath +=1;
         down = 0.5*(up+down);
@@ -76,7 +76,7 @@ __device__ int findCell(int body, double x, double y, double up, double down, do
         father = cell;
         childPath=0;
 
-        if(x<=0.5*(left+right)){
+        if(x[body]<=0.5*(left+right)){
             //+2
             childPath +=2;
             right = 0.5*(left+right);
@@ -84,7 +84,7 @@ __device__ int findCell(int body, double x, double y, double up, double down, do
             //+0
             left = 0.5*(left+right);
         }
-        if(y>0.5*(up+down)){
+        if(y[body]>0.5*(up+down)){
             //+1
             childPath +=1;
             down = 0.5*(up+down);
@@ -103,7 +103,51 @@ __device__ int findCell(int body, double x, double y, double up, double down, do
             if(cell == -1){
                 child[father] = cell;
             }else{
-                
+                while(cell>=0 && cell<numBody){
+                    int newCell = atomicAdd(&pPointer,-4);
+                    child[newCell]=-1;
+                    child[newCell-1]=-1;
+                    child[newCell-2]=-1;
+                    child[newCell-3]=-1;
+
+                    //inserisco vecchia particella
+                    childPath=0;
+                    if(x[cell]<=0.5*(left+right)){
+                        //+2
+                        childPath +=2;
+                    } 
+
+                    if(y[cell]>0.5*(up+down)){
+                        //+1
+                        childPath +=1;
+                    }
+
+                    //mass
+
+                    child[newCell-childPath]=cell;
+
+                    //nuova particella
+                    if(x[body]<=0.5*(left+right)){
+                        //+2
+                        childPath +=2;
+                        right = 0.5*(left+right);
+                    } else {
+                        //+0
+                        left = 0.5*(left+right);
+                    }
+                    if(y[body]>0.5*(up+down)){
+                        //+1
+                        childPath +=1;
+                        down = 0.5*(up+down);
+                    }else{
+                        //+0
+                        up = 0.5*(up+down);
+                    }
+
+                    cell=child[newCell-childPath];
+                    //gestine doppo sato
+
+                }
             }
         }
     }
@@ -120,12 +164,12 @@ __global__ void createTree(double *xP, double *yP, double up, double down, doubl
     if(id>numBody){
         return;
     }
-    int cell = findCell(id,xP[id], yP[id], up, down, left, right, child, dimMax, numBody);
+    int cell = findCell(id,xP, yP, up, down, left, right, child, dimMax, numBody);
 }
 // funzione kernel per inizializzare la variabile globale puntatore
 __global__ void setPointer(int num)
 {
-    pPointer = num;
+    pPointer = num-5;
 }
 
 // funzioni host
