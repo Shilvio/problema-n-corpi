@@ -8,8 +8,8 @@
 int maxCells, numberBody, seed, maxTime = 1;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
-//double maxSize=50;
-double maxSize = 6.162025e+070;
+double maxSize=20;
+//double maxSize = 6.162025e+070;
 
 // costanti e variabili gpu
 __constant__ double G = 6.67384E-11; // costante gravitazione universale
@@ -35,61 +35,54 @@ __device__ int h = 0;
 
 // funzioni gpu
 
-// funzione kernel per trovare la particella da inserire
-__global__ void createTree(double* x, double* y, double up, double down, double left, double right, int *child,int cell,int numBody)
-{   
-    int body = threadIdx.x + blockDim.x * blockIdx.x;
+//funzione di calcolo dei centri di massa
+__global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,double* centerMass,double* cmX,double* cmY){
     
+}
+
+// funzione per la creazione dell'albero
+__global__ void createTree(double* x, double* y, double up, double down, double left, double right, int *child,int cell,int numBody)
+{  
+    int body = threadIdx.x + blockDim.x * blockIdx.x;
     // uccido il thread che non deve inserire particelle
     if(body>numBody){
         return;
     }
-                                                numBody+=1;
     int father=cell;
     bool newBody=true;
     bool finish=false;
     int childPath;
     while(!finish){
+
+        //se inserisco una nuova particella
         if(newBody){
             newBody = false;
             childPath = 0;
-            //    _________________________
-            //   |          3 |          1 |
-            //   |    (NW)    |    (NE)    |
-            //   |            |            |
-            //   |     -+     |     ++     |
-            //   |____________|____________|
-            //   |          2 |          0 |
-            //   |     --     |     +-     |
-            //   |            |            |
-            //   |    (SW)    |    (SE)    |
-            //   |____________|____________|
-            //
+
+            //assegno i path ai figli
             if(x[body]<=0.5*(left+right)){
-                //+2
-                childPath +=2;
-                right = 0.5*(left+right);
-            } else {
-                //+0
-                left = 0.5*(left+right);
-            }
-            if(y[body]>0.5*(up+down)){
-                //+1
-                childPath +=1;
-                down = 0.5*(up+down);
+                //+2                            //    _________________________
+                childPath +=2;                  //   |          3 |          1 |
+                right = 0.5*(left+right);       //   |    (NW)    |    (NE)    |
+            } else {                            //   |            |            |
+                //+0                            //   |     -+     |     ++     |
+                left = 0.5*(left+right);        //   |____________|____________|
+            }                                   //   |          2 |          0 |
+            if(y[body]>0.5*(up+down)){          //   |     --     |     +-     |
+                //+1                            //   |            |            |
+                childPath +=1;                  //   |    (SW)    |    (SE)    |
+                down = 0.5*(up+down);           //   |____________|____________|
             }else{
                 //+0
                 up = 0.5*(up+down);
             }  
         }
         cell=child[father-childPath];
-
-        // ciclo fino a che non trovo una foglia
+        // ciclo fino a che non trovo una foglia e assegno i path
         while(cell >= numBody){
             
             father = cell;
             childPath=0;
-
             if(x[body]<=0.5*(left+right)){
                 //+2
                 childPath +=2;
@@ -105,56 +98,60 @@ __global__ void createTree(double* x, double* y, double up, double down, double 
             }else{
                 //+0
                 up = 0.5*(up+down);
-            }  
-
-            //Possibbile creazione di centro di massa
+            }
             cell = child[father - childPath];
         }
                                                                                 //printf("cell: %d\n",cell);
+        //controllo se la cella è libera
         if (cell != -2){
             int lock=father-childPath;
                                                                                 //printf("cell2: %d\n",cell);
+            //blocco la cella per lavoraci, utilizzando una funzione atomica
             if(atomicCAS(&child[lock],cell,-2)==cell){
                 if(cell == -1){
-                                                                                printf("lock:%d id:%d d %f, u %f, r %f, l %f\n",lock,body,down,up,right,left);
+                                                                                //printf("lock:%d id:%d d %f, u %f, r %f, l %f\n",lock,body,down,up,right,left);
+                    child[body]=lock;
                     child[lock] = body;
-                    finish=true;
-                    
+                    finish=true;     
                 }else{
                     while(cell>=0 && cell<numBody){
-                        int newCell = atomicAdd(&pPointer,-4);
 
-                        //possibilità di omettere
+                        //scalo al prossimo indice con cella libera
+                        int newCell = atomicAdd(&pPointer,-5);
+                        if(newCell-4<numBody){
+                            printf("\nNon ho spazio disponibile\n");
+                            return;
+                        }
+                        //assegno ai figli il valore -1, ovvero puntatore a null
                         child[newCell]=-1;
                         child[newCell-1]=-1;
                         child[newCell-2]=-1;
                         child[newCell-3]=-1;
-
-                        //inserisco vecchia particella
+                        child[newCell-4]=father;
+                        
+                        //inserisco la vecchia particella
                         childPath=0;
-                        double down2=down,up2=up,left2=left,right2=right;
+                                                                                        //double down2=down,up2=up,left2=left,right2=right;
 
-                        if(x[cell]<=0.5*(left2+right2)){
+                        if(x[cell]<=0.5*(left+right)){
                             //+2
                             childPath +=2;
-                            right2 = 0.5*(left2+right2);
+                            right = 0.5*(left+right);
                         }else{
-                            left2 = 0.5*(left2+right2);
+                            left = 0.5*(left+right);
                         }
-
-                        if(y[cell]>0.5*(up2+down2)){
+                        if(y[cell]>0.5*(up+down)){
                             //+1
                             childPath +=1;
-                            down2 = 0.5*(up2+down2);
+                            down = 0.5*(up+down);
                         }else{
-                            up2 = 0.5*(up2+down2);
+                            up = 0.5*(up+down);
                         }
-
-                        //mass
-                                                                                        printf("move lock:%d id:%d d %f, u %f, r %f, l %f\n",newCell-childPath,cell,down2,up2,right2,left2);
+                                                                                        //printf("move lock:%d id:%d d %f, u %f, r %f, l %f\n",newCell-childPath,cell,down2,up2,right2,left2);
+                        child[cell]=newCell-childPath;
                         child[newCell-childPath]=cell;
 
-                        //nuova particella
+                        //vedo dove inserire una nuova particella
                         childPath=0;
                         father = newCell;
                         if(x[body]<=0.5*(left+right)){
@@ -175,7 +172,7 @@ __global__ void createTree(double* x, double* y, double up, double down, double 
                         }
 
                         cell=child[newCell-childPath];
-                        //gestione doppio salto
+                        
                         child[newCell-childPath]=-2;
 
                         __threadfence();
@@ -184,7 +181,8 @@ __global__ void createTree(double* x, double* y, double up, double down, double 
                         lock= newCell-childPath;
 
                     }
-                                                                                        printf("lock:%d id:%d d %f, u %f, r %f, l %f\n",lock,body,down,up,right,left);
+                                                                                        //printf("lock:%d id:%d d %f, u %f, r %f, l %f\n",lock,body,down,up,right,left);
+                    child[body]=lock;
                     child[lock]=body;
                     finish=true;
                 }
@@ -199,7 +197,7 @@ __global__ void createTree(double* x, double* y, double up, double down, double 
 // funzione kernel per inizializzare la variabile globale puntatore
 __global__ void setPointer(int num)
 {
-    pPointer = num-5;
+    pPointer = num-6;
 }
 
 // funzioni host
@@ -209,7 +207,6 @@ void getInput(FILE *file)
     x = (double *)malloc(sizeof(double) * numberBody);
     y = (double *)malloc(sizeof(double) * numberBody);
     m = (double *)malloc(sizeof(double) * numberBody);
-
     velX = (double *)malloc(sizeof(double) * numberBody);
     velY = (double *)malloc(sizeof(double) * numberBody);
     forceX = (double *)malloc(sizeof(double) * numberBody);
@@ -219,13 +216,13 @@ void getInput(FILE *file)
     for (int i = 0; i < numberBody; i++)
     {
         // prendo i dati dal file
-
         fscanf(file, "%lf%lf%lf%lf%lf", &x[i], &y[i], &m[i], &velX[i], &velY[i]);
 
         // imposto le forze iniziali a zero
         forceX[i] = 0;
         forceY[i] = 0;
-        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
+        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",\
+        i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
     printf("\n");
     // chiudo il file
@@ -245,22 +242,33 @@ FILE *initial()
     fscanf(file, "%d", &numberBody);
     printf("numero particelle: %d\n", numberBody);
     // calcolo max cell offset
-    //maxCells = ((numberBody * 2 + 50) * 4);
-    maxCells = ((numberBody * 2 + 12000) * 4);
+    maxCells = ((numberBody * 2 + 50) * 4);
+    //maxCells = ((numberBody * 2 + 12000) * 4);
     return file;
 }
 
+//funzione grafica per stampare l'albero creato da crateTree()
 void printerTree(int* array, int state, int max,int point){
     if(state==0){
         int counter=0;
+        printf("(%d) ",point);
         for(int i=point;i>=0;i--){
             printf("%d , ",array[i]);
             counter++;
-            if(counter%4==0){
-                printf("(%d)\n",i);
+            if(counter%5==0){
+                if(array[i-5]==0){
+                    break;
+                }
+                printf("\n(%d) ",i-1);
             }
         }
-        printf("  %d count %d",point,counter);
+        printf("\n\nPosizione dei body: ");
+        int counter2=max;
+        for(int i=max-1;i>=0;i--){
+            counter2--;
+            printf("(%d) %d , ",counter2,array[i]);
+        }
+        printf("\n%d count %d",point,counter);
         printf("\n\n");
         printf("0\n");
         printerTree(array,state+1,max,point);
@@ -310,66 +318,68 @@ void printerTree(int* array, int state, int max,int point){
 
 }
 
+//funzione di esecuzione dei vari kernell
 void compute(int time)
 {
-    //printf("entro in compute\n");
-    double *xP, *yP, up=maxSize, down=-maxSize, left=-maxSize, right=maxSize;
+    double *xP, *yP, *massP;
+    
+    double up=maxSize, down=-maxSize, left=-maxSize, right=maxSize;
     int *child;
 
-    //printf("inizio l'allocazione su device: \n");
-    //printf("\n");
-    cudaMalloc((void **)&xP, sizeof(double) * numberBody);
-    //printf("malloc 0 funzionante\n");
-    gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * numberBody));
-    //printf("malloc 1 funzionante\n");
-    gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));
-    //printf("malloc 2 funzionante\n");
-    //printf("\n");
-    // copio array delle posizioni x e y delle particelle
-    cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    //printf("array x particelle copiato \n");
-    cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    //printf("array y particelle copiato \n");
-    //printf("\n");
-    // setto array dei figli a -1 (null)
-    // cudaMemset(&child, -1, sizeof(int)*maxCells);
-    cudaMemset(&child[ maxCells - 1], -1, sizeof(int));
-    cudaMemset(&child[ maxCells - 2], -1, sizeof(int));
-    cudaMemset(&child[ maxCells - 3], -1, sizeof(int));
-    cudaMemset(&child[ maxCells - 4], -1, sizeof(int));
-    //printf("array childs inizializzato \n");
-    //printf("\n");
+    double *centerMass,*cmX,*cmY;
+    
+
+    //alloco la memoria dei vari parametrio sul device
+    gpuErrchk(cudaMalloc((void **)&xP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * numberBody));   
+    gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));   
+    gpuErrchk(cudaMalloc((void **)&massP, sizeof(double) * maxCells * 4));
+    // copio array delle posizioni x, y e masse delle particelle
+    cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);   
+    cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);  
+    cudaMemcpy(massP, m, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
+    
+                                                                                                int* childH=(int*) malloc( sizeof(int) * maxCells * 4);
     // invoco la funzione per settarre la variabile puntatore globale nel device
     setPointer<<<1, 1>>>(maxCells);
-    //printf("puntatore settato \n");
-    //printf("\n");
     gpuErrchk(cudaDeviceSynchronize());
-    //printf("sincronizzo kernel");
-    //printf("\n");
-
     // eseguo funzioni cuda
     for (int i = 0; i < time; i++)
     {
+        // setto array dei figli a -1 (null)
+        cudaMemset(&child[ maxCells - 1], -1, sizeof(int));
+        cudaMemset(&child[ maxCells - 2], -1, sizeof(int));
+        cudaMemset(&child[ maxCells - 3], -1, sizeof(int));
+        cudaMemset(&child[ maxCells - 4], -1, sizeof(int));
+        cudaMemset(&child[ maxCells - 5], -1, sizeof(int));
 
-        // funzione che genera l'albero
+        // genero l'albero
         createTree<<<4, 1>>>(xP, yP, up, down, left, right, child, maxCells-1, numberBody);
         cudaDeviceSynchronize();
-        printf("albero generato, e kernel sincronizzati \n");
-        int* childH=(int*) malloc( sizeof(int) * maxCells * 4);
-
-        cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
-        printerTree(childH,0,numberBody,maxCells-1);
-
-        // calculateCenterMass<<<?>>>(?);
+        // sincronizzo i kernel a fine esecuzione
+                                                                                                cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
+                                                                                                // ritorno l'albero a l'host per la stampa e lo stampo
+                                                                                                printerTree(childH,0,numberBody,maxCells-1);
+         
+        
+        // calcolo centri di massa
+        calculateCenterMass<<<4,1>>>(childH,xP,yP,massP,centerMass,cmX,cmY);
         // cudaDeviceSynchronize();
+        
+        // calcolo spostamento particelle
         // calculateMove<<<?>>>(?);
         // cudaDeviceSynchronize();
+        
     }
-
     // libero memoria
+                                                                                                free(childH);
     cudaFree(child);
     cudaFree(xP);
     cudaFree(yP);
+    cudaFree(massP);
+    cudaFree(centerMass);
+    cudaFree(cmX);
+    cudaFree(cmY);
     //printf("memoria liberata sul device \n");
 }
 
@@ -399,7 +409,6 @@ int main()
     // avvio getInput
     getInput(initial());
     // avvio compute
-    //printf("avvio compute\n");
     compute(maxTime);
     // stampo i risultati del calcolo
     printer();
