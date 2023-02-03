@@ -103,10 +103,6 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                 //+0
                 up = 0.5*(up+down);
             }
-                                                                                printf("lavoro su %d\n",father);
-            atomicAdd(&x[father],mass[body]*x[body]);
-            atomicAdd(&y[father],mass[body]*y[body]);
-            atomicAdd(&mass[father],mass[body]);
 
             cell = child[father - childPath];
         }
@@ -127,8 +123,8 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                     while(cell>=0 && cell<numBody){
 
                         //scalo al prossimo indice con cella libera
-                        int newCell = atomicAdd(&pPointer,-4);
-                        if(newCell-3<numBody){
+                        int newCell = atomicAdd(&pPointer,-5);
+                        if(newCell-4<numBody){
                             printf("\nNon ho spazio disponibile\n");
                             return;
                         }
@@ -137,6 +133,7 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                         child[newCell-1]=-1;
                         child[newCell-2]=-1;
                         child[newCell-3]=-1;
+                        child[newCell-4]=father;
                         
                         //inserisco la vecchia particella
                         childPath=0;
@@ -158,11 +155,6 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                         }
                                                                                         //printf("move lock:%d id:%d d %f, u %f, r %f, l %f\n",newCell-childPath,cell,down2,up2,right2,left2);
                         //child[cell]=newCell-childPath;
-
-                                                                                        //printf("lavoro su %d\n",newCell);
-                        x[newCell]+=mass[cell]*x[cell];
-                        y[newCell]+=mass[cell]*y[cell];
-                        mass[newCell]+=mass[cell];
 
                         child[cell]=newCell;
                         child[newCell-childPath]=cell;
@@ -186,11 +178,7 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                             //+0
                             up = 0.5*(up+down);
                         }
-                                                                                        //printf("lavoro su %d\n",father);
-                        x[father]+=mass[body]*x[body];
-                        y[father]+=mass[body]*y[body];
-                        mass[father]+=mass[cell];
-
+                        
                         cell=child[newCell-childPath];
                         
                         child[newCell-childPath]=-2;
@@ -221,7 +209,7 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
 // funzione kernel per inizializzare la variabile globale puntatore
 __global__ void setPointer(int num)
 {
-    pPointer = num-5;
+    pPointer = num-6;
 }
 
 // funzioni host
@@ -273,8 +261,7 @@ FILE *initial()
 }
 
                                                                                                     __global__ void set0(int* child){
-                                                                                                        child[pPointer]=0;
-                                                                                                        child[pPointer-1]=0;
+                                                                                                        child[pPointer-4]=0;
                                                                                                     }
 
 //funzione grafica per stampare l'albero creato da crateTree()
@@ -285,8 +272,8 @@ void printerTree(int* array, int state, int max,int point){
         for(int i=point;i>=0;i--){
             printf("%d , ",array[i]);
             counter++;
-            if(counter%4==0){
-                if(array[i]==0 && array[i-1]==0){
+            if(counter%5==0){
+                if(array[i-5]==0){
                     break;
                 }
                 printf("\n(%d) ",i-1);
