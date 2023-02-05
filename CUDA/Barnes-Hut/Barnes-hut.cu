@@ -8,7 +8,7 @@
 int maxCells, numberBody, seed, maxTime = 1;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
-double maxSize=20;
+double maxSize=100;
 //double maxSize = 6.162025e+070;
 
 // costanti e variabili gpu
@@ -36,11 +36,23 @@ __device__ int h = 0;
 // funzioni gpu
 
 //funzione di calcolo dei centri di massa
-__global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP){
-    
-    //int body=threadIdx.x + blockDim.x * blockIdx.x;
-    
+__global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,int point){
 
+    int body=threadIdx.x + blockDim.x * blockIdx.x;
+    int stride= blockDim.x*gridDim.x;
+    point-=4;
+
+    //printf("ppointer: %d",point-(4*body));
+
+    for(int i=point-(4*body);i>pPointer;i-=(4*stride)){
+
+        //printf("\n(%d) ",i);
+        xP[i]/=mP[i];
+        yP[i]/=mP[i];
+        printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
+
+    }
+    
 
 }
 
@@ -103,7 +115,7 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                 //+0
                 up = 0.5*(up+down);
             }
-                                                                                printf("lavoro su %d\n",father);
+                                                                                //printf("lavoro su %d\n",father);
             atomicAdd(&x[father],mass[body]*x[body]);
             atomicAdd(&y[father],mass[body]*y[body]);
             atomicAdd(&mass[father],mass[body]);
@@ -189,7 +201,7 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                                                                                         //printf("lavoro su %d\n",father);
                         x[father]+=mass[body]*x[body];
                         y[father]+=mass[body]*y[body];
-                        mass[father]+=mass[cell];
+                        mass[father]+=mass[body];
 
                         cell=child[newCell-childPath];
                         
@@ -286,7 +298,7 @@ void printerTree(int* array, int state, int max,int point){
             printf("%d , ",array[i]);
             counter++;
             if(counter%4==0){
-                if(array[i]==0 && array[i-1]==0){
+                if(array[i-4]==0 && array[i-5]==0){
                     break;
                 }
                 printf("\n(%d) ",i-1);
@@ -300,10 +312,10 @@ void printerTree(int* array, int state, int max,int point){
         }
         printf("\n%d count %d",point,counter);
         printf("\n\n");
-        printf("0\n");
-        printerTree(array,state+1,max,point);
         printf("1\n");
         printerTree(array,state+1,max,point-1);
+        printf("0\n");
+        printerTree(array,state+1,max,point);
         printf("2\n");
         printerTree(array,state+1,max,point-2);
         printf("3\n");
@@ -328,13 +340,14 @@ void printerTree(int* array, int state, int max,int point){
         }
         return;
     }
-    printf("0\n");
-    printerTree(array,state+1,max,array[point]);
+
+    printf("1\n");
+    printerTree(array,state+1,max,array[point]-1);
     for(int i=0;i<state;i++){
         printf("\t");
     }
-    printf("1\n");
-    printerTree(array,state+1,max,array[point]-1);
+    printf("0\n");
+    printerTree(array,state+1,max,array[point]);
     for(int i=0;i<state;i++){
         printf("\t");
     }
@@ -352,8 +365,9 @@ void printerTree(int* array, int state, int max,int point){
 void compute(int time)
 {
     double *xP, *yP, *massP;
+    double *xR, *yR, *massR;
     
-    double up=maxSize, down=-maxSize, left=-maxSize, right=maxSize,*massR;
+    double up=maxSize, down=-maxSize, left=-maxSize, right=maxSize;
     int *child;
     
 
@@ -392,14 +406,19 @@ void compute(int time)
          
         
         // calcolo centri di massa
-        calculateCenterMass<<<4,1>>>(childH,xP,yP,massP);
+        
+        calculateCenterMass<<<2,2>>>(childH,xP,yP,massP,maxCells-1);
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
-        // calculateMove<<<?>>>(?);
+        // calculateMovement<<<?>>>(?);
 
-        gpuErrchk(cudaMalloc((void **)&massR, sizeof(double) * maxCells * 4));
-        cudaMemcpy(massR, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToDevice);
+        //gpuErrchk(cudaMalloc((void **)&xR, sizeof(double) * maxCells * 4));
+
+        //gpuErrchk(cudaMalloc((void **)&yR, sizeof(double) * maxCells * 4));
+
+        //gpuErrchk(cudaMalloc((void **)&massR, sizeof(double) * maxCells * 4));
+        //cudaMemcpy(massR, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToDevice);
         // cudaDeviceSynchronize();
 
         cudaFree(massP);

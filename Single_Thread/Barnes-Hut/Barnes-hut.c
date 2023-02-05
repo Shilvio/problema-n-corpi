@@ -4,13 +4,13 @@
 #include <stdbool.h>
 #include <string.h>
 
-int numberBody, seed, maxTime = 3;
+int numberBody, seed, maxTime = 1;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 // double const G=1;
 double const THETA = 0.5; // thetha per il calcolo delle forze su particell
-double maxSize = 6.162025e+070;
-// double maxSize = 100;
+//double maxSize = 6.162025e+070;
+double maxSize = 100;
 // int count = 0;
 
 // struct particella
@@ -304,6 +304,8 @@ massCenter *centerMass(quadTree *c)
     mc->x = (ne->mass * ne->x + nw->mass * nw->x + se->mass * se->x + sw->mass * sw->x) / mc->mass;
     mc->y = (ne->mass * ne->y + nw->mass * nw->y + se->mass * se->y + sw->mass * sw->y) / mc->mass;
 
+    
+
     c->mc = mc;
     // printf("id=%s\n",c->id);
     // printf("mod id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
@@ -413,6 +415,7 @@ void compute(particle *p1, int time)
             }
             insert(&p1[i], c);
         }
+
         // printer(c,0);
         centerMass(c);
         // printf("\ncalcolato il centro di massa\n\n");
