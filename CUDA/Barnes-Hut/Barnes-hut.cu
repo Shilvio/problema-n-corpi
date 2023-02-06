@@ -34,6 +34,38 @@ __device__ int h = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // funzioni gpu
+__global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,int point,int numBody,double* forceX, double* forceY, double* velX, double* velY){
+    
+    int body = threadIdx.x + blockDim.x * blockIdx.x;
+    int Id=threadIdx.x;
+    //double dist = sqrt(pow(xP[body] - t->mc->x, 2) + pow(yP[body] - t->mc->y, 2));
+    extern __shared__ int stack[];
+    int stakPoint=0;
+    for(int i=0;i<4;i++){
+        int cell=child[point-i];
+        if(cell!=-1){
+            stack[blockDim.x*stakPoint+threadIdx.x]=cell;
+            stakPoint++;
+        }
+    }
+    while (stakPoint!=0){
+        int cell = stack[blockDim.x*stakPoint+threadIdx.x];
+        double dist = rsqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
+
+        if(cell<numBody){
+            double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
+            double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
+            double cubeDist = dist * dist * dist;                              // elevo al cubo la distanza e applico la formula di newton
+            forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
+            forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
+        }else{
+            //THETA
+        }
+    }
+    
+
+
+}
 
 //funzione di calcolo dei centri di massa
 __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,int point){
@@ -52,8 +84,6 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
         printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
 
     }
-    
-
 }
 
 // funzione per la creazione dell'albero
@@ -369,6 +399,8 @@ void compute(int time)
     
     double up=maxSize, down=-maxSize, left=-maxSize, right=maxSize;
     int *child;
+
+    double *foceXP,*foceYP,*velXP,*velYP;
     
 
     //alloco la memoria dei vari parametrio sul device
@@ -376,10 +408,17 @@ void compute(int time)
     gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * maxCells * 4));   
     gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));   
     gpuErrchk(cudaMalloc((void **)&massP, sizeof(double) * maxCells * 4));
+    gpuErrchk(cudaMalloc((void **)&foceXP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&foceYP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&velXP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&velYP, sizeof(double) * numberBody));
+    
     // copio array delle posizioni x, y e masse delle particelle
     cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);   
     cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);  
     cudaMemcpy(massP, m, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
+    cudaMemcpy(velXP, velX, sizeof(double) * numberBody, cudaMemcpyHostToDevice);   
+    cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice);  
                                                                                                 int* childH=(int*) malloc( sizeof(int) * maxCells * 4);
     
     gpuErrchk(cudaDeviceSynchronize());
@@ -407,11 +446,11 @@ void compute(int time)
         
         // calcolo centri di massa
         
-        calculateCenterMass<<<2,2>>>(childH,xP,yP,massP,maxCells-1);
+        calculateCenterMass<<<2,2>>>(child,xP,yP,massP,maxCells-1);
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
-        // calculateMovement<<<?>>>(?);
+        calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,foceXP,foceYP,velXP,velYP);
 
         //gpuErrchk(cudaMalloc((void **)&xR, sizeof(double) * maxCells * 4));
 
