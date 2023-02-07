@@ -34,10 +34,65 @@ __device__ int h = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // funzioni gpu
-__global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,int point,int numBody,double* forceX, double* forceY, double* velX, double* velY){
+__global__ void boundingBox(double *xP, double* yP,int numBody,double *up, double *down, double *left, double *right,int* lock){
+
+    int id = threadIdx.x + blockDim.x * blockIdx.x;
+    int stride = blockDim.x*gridDim.x;
+    float xMin = xP[id];
+	float xMax = xP[id];
+	float yMin = yP[id];
+	float yMax = yP[id];
+
+    __shared__ float leftCache[256];
+    __shared__ float rightCache[256];
+    __shared__ float upCache[256];
+    __shared__ float downCache[256];
+
+    int offset = stride;
+	while(id + offset < numBody){
+		xMin = fminf(xMin, xP[id + offset]);
+		xMax = fmaxf(xMax, xP[id + offset]);
+		yMin = fminf(yMin, yP[id + offset]);
+		yMax = fmaxf(yMax, yP[id + offset]);
+		offset += stride;
+	}
+
+	leftCache[threadIdx.x] = xMin;
+	rightCache[threadIdx.x] = xMax;
+	upCache[threadIdx.x] = yMax;
+	downCache[threadIdx.x] = yMin;
+
+	__syncthreads();
+
+	// assumes blockDim.x is a power of 2!
+	int i = blockDim.x/2;
+	while(i != 0){
+		if(threadIdx.x < i){
+			leftCache[threadIdx.x] = fminf(leftCache[threadIdx.x], leftCache[threadIdx.x + i]);
+			rightCache[threadIdx.x] = fmaxf(rightCache[threadIdx.x], rightCache[threadIdx.x + i]);
+			upCache[threadIdx.x] = fmaxf(upCache[threadIdx.x], upCache[threadIdx.x + i]);
+			downCache[threadIdx.x] = fminf(downCache[threadIdx.x], downCache[threadIdx.x + i]);
+		}
+		__syncthreads();
+		i /= 2;
+	}
+
+	if(threadIdx.x == 0){
+		while (atomicCAS(lock, 0 ,1) != 0); // lock
+		*left = fminf(*left, leftCache[0])-1;
+		*right = fmaxf(*right, rightCache[0])+1;
+		*up = fmaxf(*up, upCache[0])+1;
+		*down = fminf(*down, downCache[0])-1;
+		atomicExch(lock, 0); // unlock
+                                                                            //printf("Bounding box: up: %e,down: %e,left: %e,right: %e",*up,*down,*left,*right);
+	}
+}
+
+__global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,int point,int numBody,double* forceX, double* forceY, double* velX, double* velY,double size){
     
     int body = threadIdx.x + blockDim.x * blockIdx.x;
-    int Id=threadIdx.x;
+    int id=threadIdx.x;
+    int depth=0;
     //double dist = sqrt(pow(xP[body] - t->mc->x, 2) + pow(yP[body] - t->mc->y, 2));
     extern __shared__ int stack[];
     int stakPoint=0;
@@ -48,10 +103,11 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
             stakPoint++;
         }
     }
+    depth++;
     while (stakPoint!=0){
         int cell = stack[blockDim.x*stakPoint+threadIdx.x];
         double dist = rsqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
-
+        stakPoint--;
         if(cell<numBody){
             double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
             double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
@@ -59,7 +115,9 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
             forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
             forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
         }else{
-            //THETA
+            if((size/pow(2,depth))){
+
+            }
         }
     }
     
@@ -87,7 +145,7 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
 }
 
 // funzione per la creazione dell'albero
-__global__ void createTree(double* x, double* y,double* mass, double up, double down, double left, double right, int *child,int cell,int numBody)
+__global__ void createTree(double* x, double* y,double* mass, double *upP, double *downP, double *leftP, double *rightP, int *child,int cell,int numBody)
 {  
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     // uccido il thread che non deve inserire particelle
@@ -98,6 +156,12 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
     bool newBody=true;
     bool finish=false;
     int childPath;
+    
+    double up=*upP;
+    double down=*downP;
+    double left=*leftP;
+    double right=*rightP;
+                                                                        //printf("Bounding box2: up: %e,down: %e,left: %e,right: %e\n",up,down,left,right);
     while(!finish){
 
         //se inserisco una nuova particella
@@ -106,21 +170,21 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
             childPath = 0;
 
             //assegno i path ai figli
-            if(x[body]<=0.5*(left+right)){
+            if(x[body]<=((right-left)/2)+left){
                 //+2                            //    _________________________
                 childPath +=2;                  //   |          3 |          1 |
-                right = 0.5*(left+right);       //   |    (NW)    |    (NE)    |
+                right = ((right-left)/2)+left;  //   |    (NW)    |    (NE)    |
             } else {                            //   |            |            |
                 //+0                            //   |     -+     |     ++     |
-                left = 0.5*(left+right);        //   |____________|____________|
+                left = ((right-left)/2)+left;   //   |____________|____________|
             }                                   //   |          2 |          0 |
-            if(y[body]>0.5*(up+down)){          //   |     --     |     +-     |
+            if(y[body]>((up-down)/2)+down){     //   |     --     |     +-     |
                 //+1                            //   |            |            |
                 childPath +=1;                  //   |    (SW)    |    (SE)    |
-                down = 0.5*(up+down);           //   |____________|____________|
+                down = ((up-down)/2)+down;      //   |____________|____________|
             }else{
                 //+0
-                up = 0.5*(up+down);
+                up = ((up-down)/2)+down;
             }  
         }
         cell=child[father-childPath];
@@ -129,21 +193,21 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
             
             father = cell;
             childPath=0;
-            if(x[body]<=0.5*(left+right)){
+            if(x[body]<=((right-left)/2)+left){
                 //+2
                 childPath +=2;
-                right = 0.5*(left+right);
+                right = ((right-left)/2)+left;
             } else {
                 //+0
-                left = 0.5*(left+right);
+                left = ((right-left)/2)+left;
             }
-            if(y[body]>0.5*(up+down)){
+            if(y[body]>((up-down)/2)+down){
                 //+1
                 childPath +=1;
-                down = 0.5*(up+down);
+                down = ((up-down)/2)+down;
             }else{
                 //+0
-                up = 0.5*(up+down);
+                up = ((up-down)/2)+down;
             }
                                                                                 //printf("lavoro su %d\n",father);
             atomicAdd(&x[father],mass[body]*x[body]);
@@ -184,19 +248,21 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                         childPath=0;
                                                                                         //double down2=down,up2=up,left2=left,right2=right;
 
-                        if(x[cell]<=0.5*(left+right)){
+                        printf("x cell %e\n",x[cell]);
+
+                        if(x[cell]<=((right-left)/2)+left){
                             //+2
                             childPath +=2;
-                            //right = 0.5*(left+right);
+                            //right2 = ((right-left)/2)+left;
                         }else{
-                            //left = 0.5*(left+right);
+                            //left2 = ((right-left)/2)+left;
                         }
-                        if(y[cell]>0.5*(up+down)){
+                        if(y[cell]>((up-down)/2)+down){
                             //+1
                             childPath +=1;
-                            //down = 0.5*(up+down);
+                            //down2 = ((up-down)/2)+down;
                         }else{
-                            //up = 0.5*(up+down);
+                            //up2 = ((up-down)/2)+down;
                         }
                                                                                         //printf("move lock:%d id:%d d %f, u %f, r %f, l %f\n",newCell-childPath,cell,down2,up2,right2,left2);
                         //child[cell]=newCell-childPath;
@@ -212,21 +278,21 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                         //vedo dove inserire una nuova particella
                         childPath=0;
                         father = newCell;
-                        if(x[body]<=0.5*(left+right)){
+                        if(x[body]<=((right-left)/2)+left){
                             //+2
                             childPath +=2;
-                            right = 0.5*(left+right);
+                            right = ((right-left)/2)+left;
                         } else {
                             //+0
-                            left = 0.5*(left+right);
+                            left = ((right-left)/2)+left;
                         }
-                        if(y[body]>0.5*(up+down)){
+                        if(y[body]>((up-down)/2)+down){
                             //+1
                             childPath +=1;
-                            down = 0.5*(up+down);
+                            down = ((up-down)/2)+down;
                         }else{
                             //+0
-                            up = 0.5*(up+down);
+                            up = ((up-down)/2)+down;
                         }
                                                                                         //printf("lavoro su %d\n",father);
                         x[father]+=mass[body]*x[body];
@@ -397,8 +463,8 @@ void compute(int time)
     double *xP, *yP, *massP;
     double *xR, *yR, *massR;
     
-    double up=maxSize, down=-maxSize, left=-maxSize, right=maxSize;
-    int *child;
+    double *up, *down, *left, *right;
+    int *child,*lock;
 
     double *foceXP,*foceYP,*velXP,*velYP;
     
@@ -412,6 +478,11 @@ void compute(int time)
     gpuErrchk(cudaMalloc((void **)&foceYP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&velXP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&velYP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&up, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&down, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&left, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&right, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&lock, sizeof(int)));
     
     // copio array delle posizioni x, y e masse delle particelle
     cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);   
@@ -427,6 +498,7 @@ void compute(int time)
     {
         // invoco la funzione per settarre la variabile puntatore globale nel device
         setPointer<<<1,1>>>(maxCells);
+        boundingBox<<<1, 4>>>(xP,yP,numberBody,up, down,left, right,lock);
         // setto array dei figli a -1 (null)
         cudaMemset(&child[ maxCells - 1], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 2], -1, sizeof(int));
@@ -434,6 +506,7 @@ void compute(int time)
         cudaMemset(&child[ maxCells - 4], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 5], -1, sizeof(int));
 
+        cudaDeviceSynchronize();
         // genero l'albero
         createTree<<<1, 4>>>(xP, yP, massP, up, down, left, right, child, maxCells-1, numberBody);
         cudaDeviceSynchronize();
@@ -450,7 +523,7 @@ void compute(int time)
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
-        calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,foceXP,foceYP,velXP,velYP);
+        calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,foceXP,foceYP,velXP,velYP,maxSize);
 
         //gpuErrchk(cudaMalloc((void **)&xR, sizeof(double) * maxCells * 4));
 

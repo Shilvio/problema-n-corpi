@@ -4,12 +4,12 @@
 #include <stdbool.h>
 #include <string.h>
 
-int numberBody, seed, maxTime = 3;
+int numberBody, seed, maxTime = 1;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
-double const THETA = 0.5;     // thetha per il calcolo delle forze su particell
+double const THETA = 0.75;     // thetha per il calcolo delle forze su particell
 double maxSize;
-double horizontal, vertical;
+double up,down,left,right;
 
 #define min(i, j) (((i) < (j)) ? (i) : (j))
 #define max(i, j) (((i) > (j)) ? (i) : (j))
@@ -38,9 +38,10 @@ typedef struct massCenter
 typedef struct quadTree
 {
     char id[20];         // index del nodo utile solo al debug
-    double x;            // x del centro dell' albero
-    double y;            // y del centro del' albero
-    double s;            // dimensione
+    double up;           // dimensione superiore del quadrante
+    double down;         // dimensione inferiore del quadrante
+    double left;         // dimensione sinistra del quadrante
+    double right;        // dimensione destra del quadrante
     particle *p;         // puntatore a una particella
     massCenter *mc;      // centro di massa per quadrante
     struct quadTree *nw; // ramo nord ovest dell' albero guardando la suddivisione del quandrante
@@ -64,36 +65,42 @@ typedef struct quadTree
 
 void boundingBox(particle *p1)
 {
-    horizontal = fabs(p1[0].x);
-    vertical = fabs(p1[0].y);
-
-    for (int i = 1; i < numberBody; i++)
+    up = p1[0].y;
+    down = p1[0].y;
+    left = p1[0].x;
+    right = p1[0].x;
+    for (int i = 0; i < numberBody; i++)
     {
-        horizontal = max(horizontal, fabs(p1[i].x));
-
-        vertical = max(vertical, fabs(p1[i].y));
+        right = max(p1[i].x, right);
+        left = min(p1[i].x, left);
+        up = max(p1[i].y, up);
+        down = min(p1[i].y, down);
     }
 
-    maxSize = max(horizontal, vertical) + 1;
+    right += 1;
+    left -= 1;
+    up += 1;
+    down -= 1;
+    printf("boundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
 bool contains(quadTree *t, particle *p)
 {
-    // printf("x %f, y %f",t->x,t->y);
-    return (p->x <= (t->x + t->s / 2) &&
-            p->x > (t->x - t->s / 2) &&
-            p->y <= (t->y + t->s / 2) &&
-            p->y > (t->y - t->s / 2));
+
+    return (p->x <=  t->right &&
+            p->x > t->left &&
+            p->y <=  t->up &&
+            p->y > t->down );
 }
 
 // funzione che inizializza l' albero o nuovi nodi di esso
-struct quadTree *newNode(double s, double x, double y, char *idF, char *son)
+struct quadTree *newNode(double up,double down,double left,double right, char *idF, char *son)
 {
     quadTree *t = (quadTree *)malloc(sizeof(quadTree));
     if (t == NULL)
     {
-        // controllo di memoria
+        // controllo di memori
         printf("out of memory");
         exit(1);
     }
@@ -102,9 +109,10 @@ struct quadTree *newNode(double s, double x, double y, char *idF, char *son)
     strcat(t->id, ":");
     strcat(t->id, son);
 
-    t->s = s;
-    t->x = x;
-    t->y = y;
+    t->up = up;
+    t->down = down;
+    t->left = left;
+    t->right = right;
     t->div = false;
     t->p = NULL;
 
@@ -128,10 +136,19 @@ void divide(quadTree *t)
     // printf("quand 2 %f %f %f\n",t->s/2, t->x + t->s/4, t->y - t->s/4,t->id,"2");
     // printf("quand 3 %f %f %f\n",t->s/2, t->x - t->s/4, t->y - t->s/4,t->id,"3");
     // printf("quand 4 %f %f %f\n",t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4");
-    t->ne = newNode(t->s / 2, t->x + t->s / 4, t->y + t->s / 4, t->id, "1");
-    t->se = newNode(t->s / 2, t->x + t->s / 4, t->y - t->s / 4, t->id, "2");
-    t->sw = newNode(t->s / 2, t->x - t->s / 4, t->y - t->s / 4, t->id, "3");
-    t->nw = newNode(t->s / 2, t->x - t->s / 4, t->y + t->s / 4, t->id, "4");
+    double horizontalSize=(t->right-t->left)/2;
+    double verticalSize=(t->up-t->down)/2;
+
+    double horizontalCenter=horizontalSize+t->left;
+    double verticalCenter=verticalSize+t->down;
+    
+    horizontalSize/=2;
+    verticalSize/=2;
+    
+    t->ne = newNode(t->up, verticalCenter, horizontalCenter, t->right, t->id, "1");
+    t->se = newNode(verticalCenter,t->down,horizontalCenter, t->right, t->id, "2");
+    t->sw = newNode(verticalCenter,t->down,t->left,horizontalCenter, t->id, "3");
+    t->nw = newNode(t->up, verticalCenter,t->left,horizontalCenter, t->id, "4");
     t->div = true; // assegno true al flag di divisione
     return;
 }
@@ -354,7 +371,7 @@ void threeForce(quadTree *t, particle *p)
         return;
     }
 
-    if (t->s / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
+    if ((t->right-t->left) / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
     {
         double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
         double yDiff = p->y - t->mc->y;
@@ -397,9 +414,10 @@ void destroyTree(quadTree *c)
 // funzione per l' inizializzazione dell' albero
 void initialQuad(quadTree *c)
 {
-    c->x = 0;
-    c->y = 0;
-    c->s = maxSize;
+    c->up=up;
+    c->down=down;
+    c->left=left;
+    c->right=right;
     c->id[0] = '1';
     c->id[1] = '\0';
     c->div = false;
@@ -432,7 +450,7 @@ void compute(particle *p1, int time)
             }
             insert(&p1[i], c);
         }
-        // printer(c,0);
+        printer(c,0);
         centerMass(c);
         // printf("\ncalcolato il centro di massa\n\n");
         // printer(c,0);
@@ -455,10 +473,9 @@ int main()
     FILE *file = initial();                               // apro il file
     particle *p1 = malloc(sizeof(particle) * numberBody); // alloco la memoria per l'array che conterrà tutte le particelle (p1)
     getInput(file, p1);                                   // lancio lo script per recuperare le particelle
-    // printer(c,0);                                      // stampo in caso di debug
     printf("\n");
 
     compute(p1, maxTime); // applico la funzione compute per gestire il programma
-    printerAlt(p1);       // stampo i risultati
+    //printerAlt(p1);       // stampo i risultati
     return 0;
 }
