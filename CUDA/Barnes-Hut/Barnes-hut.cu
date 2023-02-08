@@ -8,12 +8,13 @@
 int maxCells, numberBody, seed, maxTime = 1;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
-double maxSize=100;
 //double maxSize = 6.162025e+070;
 
 // costanti e variabili gpu
-__constant__ double G = 6.67384E-11; // costante gravitazione universale
-__constant__ double THETA = 0.5;     // thetha per il calcolo delle forze su particell
+__device__ const double G = 6.67384E-11; // costante gravitazione universale
+__device__ const double THETA = 0.75;     // theta per il calcolo delle forze su particell
+__device__ const int stackSize = 64;
+__device__ const int blockSize = 256;
 __device__ int pPointer;
 
 ///////////////////////////////////////////GPU ERRORCHECK///////////////////////////////////////////////////////////////
@@ -43,10 +44,10 @@ __global__ void boundingBox(double *xP, double* yP,int numBody,double *up, doubl
 	float yMin = yP[id];
 	float yMax = yP[id];
 
-    __shared__ float leftCache[256];
-    __shared__ float rightCache[256];
-    __shared__ float upCache[256];
-    __shared__ float downCache[256];
+    __shared__ float leftCache[blockSize];
+    __shared__ float rightCache[blockSize];
+    __shared__ float upCache[blockSize];
+    __shared__ float downCache[blockSize];
 
     int offset = stride;
 	while(id + offset < numBody){
@@ -79,35 +80,39 @@ __global__ void boundingBox(double *xP, double* yP,int numBody,double *up, doubl
 
 	if(threadIdx.x == 0){
 		while (atomicCAS(lock, 0 ,1) != 0); // lock
-		*left = fminf(*left, leftCache[0])-1;
-		*right = fmaxf(*right, rightCache[0])+1;
-		*up = fmaxf(*up, upCache[0])+1;
-		*down = fminf(*down, downCache[0])-1;
+        
+		*left = fminf(*left, leftCache[0]);
+		*right = fmaxf(*right, rightCache[0]);
+		*up = fmaxf(*up, upCache[0]);
+		*down = fminf(*down, downCache[0]);
 		atomicExch(lock, 0); // unlock
                                                                             //printf("Bounding box: up: %e,down: %e,left: %e,right: %e",*up,*down,*left,*right);
 	}
 }
 
-__global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,int point,int numBody,double* forceX, double* forceY, double* velX, double* velY,double size){
+__global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,int point,int numBody,double* forceX, double* forceY, double* velX, double* velY,double* left,double* right){
     
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     int id=threadIdx.x;
-    int depth=0;
+    int size=(*right-*left);
     //double dist = sqrt(pow(xP[body] - t->mc->x, 2) + pow(yP[body] - t->mc->y, 2));
-    extern __shared__ int stack[];
+    __shared__ int stack[stackSize*blockSize];
+    __shared__ int depths[stackSize*blockSize];
     int stakPoint=0;
     for(int i=0;i<4;i++){
         int cell=child[point-i];
         if(cell!=-1){
             stack[blockDim.x*stakPoint+threadIdx.x]=cell;
+            depths[blockDim.x*stakPoint+threadIdx.x]=1;
             stakPoint++;
         }
     }
-    depth++;
+    
     while (stakPoint!=0){
-        int cell = stack[blockDim.x*stakPoint+threadIdx.x];
-        double dist = rsqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
         stakPoint--;
+        int cell = stack[blockDim.x*stakPoint+threadIdx.x];
+        int depth = depths[blockDim.x*stakPoint+threadIdx.x];
+        double dist = rsqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
         if(cell<numBody){
             double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
             double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
@@ -115,14 +120,27 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
             forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
             forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
         }else{
-            if((size/pow(2,depth))){
-
+            
+            //da controllare se funziona tutto 
+            
+            if(((size/pow(2,depth))/dist<THETA)){
+                double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
+                double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
+                double cubeDist = dist * dist * dist;                              // elevo al cubo la distanza e applico la formula di newton
+                forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
+                forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
+            }else{
+                for(int i=0;i<4;i++){
+                    int newCell=child[cell-i];
+                    if(newCell!=-1){
+                        stack[blockDim.x*stakPoint+threadIdx.x]=newCell;
+                        depths[blockDim.x*stakPoint+threadIdx.x]=depth+1;
+                        stakPoint++;
+                    }
+                }
             }
         }
     }
-    
-
-
 }
 
 //funzione di calcolo dei centri di massa
@@ -523,7 +541,7 @@ void compute(int time)
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
-        calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,foceXP,foceYP,velXP,velYP,maxSize);
+        calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,foceXP,foceYP,velXP,velYP,left,right);
 
         //gpuErrchk(cudaMalloc((void **)&xR, sizeof(double) * maxCells * 4));
 
