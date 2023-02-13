@@ -10,6 +10,7 @@ double const G = 6.67384E-11; // costante gravitazione universale
 double const THETA = 0.75;     // thetha per il calcolo delle forze su particell
 double maxSize;
 double up,down,left,right;
+int deltaTime=1;
 
 #define min(i, j) (((i) < (j)) ? (i) : (j))
 #define max(i, j) (((i) > (j)) ? (i) : (j))
@@ -81,7 +82,7 @@ void boundingBox(particle *p1)
     left -= 1;
     up += 1;
     down -= 1;
-    printf("boundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
+                                                                                //printf("boundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -365,6 +366,7 @@ void threeForce(quadTree *t, particle *p)
             double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
             p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
             p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+                                                                            //printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * xDiff);
             // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
             // printf("x=%e y=%e px=%e py=%e\n",t->mc->x,t->mc->y,p->x,p->velY);
         }
@@ -378,6 +380,7 @@ void threeForce(quadTree *t, particle *p)
         double cubeDist = dist * dist * dist;
         p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
         p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+        printf("ciao \n");
         return;
     }
     threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
@@ -443,23 +446,21 @@ void compute(particle *p1, int time)
         {
             // printf("%d number=%d x=%e y=%e \n",count,i,p1[i].x,p1[i].y);
             // count++;
-            if (!contains(c, &p1[i]))
-            { // se la particella esce dal quadrato principale
-                printf("%d out range particle\n", i);
-                exit(1);
-            }
             insert(&p1[i], c);
         }
-        printer(c,0);
+        //printer(c,0);
         centerMass(c);
         // printf("\ncalcolato il centro di massa\n\n");
         // printer(c,0);
         for (int i = 0; i < numberBody; i++)
         {
             // printf("\n");
+            
             threeForce(c, &p1[i]);
-
-            calculatePosition(&p1[i], 1);
+            
+            //printf("body %d, X %e, Y %e\n",i,p1[i].forceX,p1[i].forceY);
+            
+            calculatePosition(&p1[i], deltaTime);
         }
         // printf("\ncalcolato lo spostamento\n\n");
         // printerAlt(p1);
@@ -476,6 +477,6 @@ int main()
     printf("\n");
 
     compute(p1, maxTime); // applico la funzione compute per gestire il programma
-    //printerAlt(p1);       // stampo i risultati
+    printerAlt(p1);       // stampo i risultati
     return 0;
 }

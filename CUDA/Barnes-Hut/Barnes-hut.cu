@@ -13,9 +13,10 @@ double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
 __device__ const double THETA = 0.75;     // theta per il calcolo delle forze su particell
-__device__ const int stackSize = 64;
+__device__ const int stackSize = 16;
 __device__ const int blockSize = 256;
 __device__ int pPointer;
+__device__ const int deltaTime=1;
 
 ///////////////////////////////////////////GPU ERRORCHECK///////////////////////////////////////////////////////////////
 #define gpuErrchk(ans)                        \
@@ -95,30 +96,38 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     int id=threadIdx.x;
     int size=(*right-*left);
+
     //double dist = sqrt(pow(xP[body] - t->mc->x, 2) + pow(yP[body] - t->mc->y, 2));
     __shared__ int stack[stackSize*blockSize];
     __shared__ int depths[stackSize*blockSize];
-    int stakPoint=0;
+    int stackPoint=-1;
     for(int i=0;i<4;i++){
         int cell=child[point-i];
         if(cell!=-1){
-            stack[blockDim.x*stakPoint+threadIdx.x]=cell;
-            depths[blockDim.x*stakPoint+threadIdx.x]=1;
-            stakPoint++;
+            stackPoint++;
+            stack[blockDim.x*stackPoint+threadIdx.x]=cell;
+            depths[blockDim.x*stackPoint+threadIdx.x]=1;
+                                                                                //printf("add: %d\n",cell);
+            
         }
     }
-    
-    while (stakPoint!=0){
-        stakPoint--;
-        int cell = stack[blockDim.x*stakPoint+threadIdx.x];
-        int depth = depths[blockDim.x*stakPoint+threadIdx.x];
-        double dist = rsqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
+                                                                                //printf("1 pointer %d\n",stackPoint);
+    while (stackPoint>=0){
+        int cell = stack[blockDim.x*stackPoint+threadIdx.x];
+                                                                                //printf("exam: %d ",cell);
+        int depth = depths[blockDim.x*stackPoint+threadIdx.x];
+        stackPoint--;
+        double dist = sqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
+        if(dist==0){
+            continue;
+        }
         if(cell<numBody){
             double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
             double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
             double cubeDist = dist * dist * dist;                              // elevo al cubo la distanza e applico la formula di newton
             forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
             forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
+                                                                                //printf("body %d, cell %d\n",body,cell);
         }else{
             
             //da controllare se funziona tutto 
@@ -129,18 +138,27 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
                 double cubeDist = dist * dist * dist;                              // elevo al cubo la distanza e applico la formula di newton
                 forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
                 forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
+                                                                                    //printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
             }else{
                 for(int i=0;i<4;i++){
                     int newCell=child[cell-i];
                     if(newCell!=-1){
-                        stack[blockDim.x*stakPoint+threadIdx.x]=newCell;
-                        depths[blockDim.x*stakPoint+threadIdx.x]=depth+1;
-                        stakPoint++;
+                        stackPoint++;
+                        stack[blockDim.x*stackPoint+threadIdx.x]=newCell;
+                        depths[blockDim.x*stackPoint+threadIdx.x]=depth+1;
+                                                                                    //printf("add: %d\n",newCell);
+                        
                     }
                 }
             }
         }
+                                                                                    //printf("\n");
     }
+                                                                                    //printf("body %d, X %e, Y %e\n",body,forceX[body],forceY[body]);
+    xP[body] += deltaTime * velX[body];
+    yP[body] += deltaTime * velY[body];
+    velX[body] += deltaTime / mP[body] * forceX[body];
+    velY[body] += deltaTime / mP[body] * forceY[body];
 }
 
 //funzione di calcolo dei centri di massa
@@ -418,6 +436,7 @@ void printerTree(int* array, int state, int max,int point){
                 printf("\n(%d) ",i-1);
             }
         }
+                                                                                                return;
         printf("\n\nPosizione dei body: ");
         int counter2=max;
         for(int i=max-1;i>=0;i--){
@@ -475,6 +494,16 @@ void printerTree(int* array, int state, int max,int point){
 
 }
 
+void returnCuda(double* xP,double* yP,double* massP,double* velXP,double* velYP,double* foceXP,double* foceYP){
+    cudaMemcpy(x, xP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);   
+    cudaMemcpy(y, yP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);  
+    cudaMemcpy(m, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
+    cudaMemcpy(velX, velXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);   
+    cudaMemcpy(velY, velYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
+    cudaMemcpy(forceX, foceXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);   
+    cudaMemcpy(forceY, foceYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost); 
+}
+
 //funzione di esecuzione dei vari kernell
 void compute(int time)
 {
@@ -515,6 +544,7 @@ void compute(int time)
     for (int i = 0; i < time; i++)
     {
         // invoco la funzione per settarre la variabile puntatore globale nel device
+        
         setPointer<<<1,1>>>(maxCells);
         boundingBox<<<1, 4>>>(xP,yP,numberBody,up, down,left, right,lock);
         // setto array dei figli a -1 (null)
@@ -542,19 +572,13 @@ void compute(int time)
         
         // calcolo spostamento particelle
         calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,foceXP,foceYP,velXP,velYP,left,right);
+        cudaDeviceSynchronize();
 
-        //gpuErrchk(cudaMalloc((void **)&xR, sizeof(double) * maxCells * 4));
-
-        //gpuErrchk(cudaMalloc((void **)&yR, sizeof(double) * maxCells * 4));
-
-        //gpuErrchk(cudaMalloc((void **)&massR, sizeof(double) * maxCells * 4));
-        //cudaMemcpy(massR, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToDevice);
-        // cudaDeviceSynchronize();
-
-        cudaFree(massP);
-        massP=massR;
+        //resetArray<<<>>>();
         
     }
+
+    returnCuda(xP,yP,massP,velXP,velYP,foceXP,foceYP);
     // libero memoria
                                                                                                 free(childH);
     cudaFree(child);
@@ -592,5 +616,5 @@ int main()
     // avvio compute
     compute(maxTime);
     // stampo i risultati del calcolo
-    //printer();
+    printer();
 }

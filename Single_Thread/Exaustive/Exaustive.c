@@ -6,10 +6,11 @@
 //variabili per il calcolo del tempo di esecuzione
 
 
-int numberBody, seed, maxTime = 3;
+int numberBody, seed, maxTime = 1;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11;
 //double const G = 1;
+double const deltaTime=1;
 
 typedef struct particle
 {
@@ -88,7 +89,7 @@ void compute(int time, particle *p1)
         for (int j = 0; j < numberBody; j++)
         {
             // calcolo del cambio della posizione per una particella di interesse
-            calculatePosition(&p1[j], 1);
+            calculatePosition(&p1[j], deltaTime);
         }
     }
 }
