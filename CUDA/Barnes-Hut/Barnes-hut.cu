@@ -36,6 +36,8 @@ __device__ int h = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // funzioni gpu
+
+
 __global__ void boundingBox(double *xP, double* yP,int numBody,double *up, double *down, double *left, double *right,int* lock){
 
     int id = threadIdx.x + blockDim.x * blockIdx.x;
@@ -66,7 +68,7 @@ __global__ void boundingBox(double *xP, double* yP,int numBody,double *up, doubl
 
 	__syncthreads();
 
-	// assumes blockDim.x is a power of 2!
+	// blockdim potenza di 2
 	int i = blockDim.x/2;
 	while(i != 0){
 		if(threadIdx.x < i){
@@ -89,13 +91,14 @@ __global__ void boundingBox(double *xP, double* yP,int numBody,double *up, doubl
 		atomicExch(lock, 0); // unlock
                                                                             //printf("Bounding box: up: %e,down: %e,left: %e,right: %e",*up,*down,*left,*right);
 	}
+   
 }
 
 __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,int point,int numBody,double* forceX, double* forceY, double* velX, double* velY,double* left,double* right){
     
     int body = threadIdx.x + blockDim.x * blockIdx.x;
-    int id=threadIdx.x;
-    int size=(*right-*left);
+    double size=(*right-*left);
+                                                                                            //printf("size: %e\n",size);
 
     //double dist = sqrt(pow(xP[body] - t->mc->x, 2) + pow(yP[body] - t->mc->y, 2));
     __shared__ int stack[stackSize*blockSize];
@@ -106,7 +109,7 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
         if(cell!=-1){
             stackPoint++;
             stack[blockDim.x*stackPoint+threadIdx.x]=cell;
-            depths[blockDim.x*stackPoint+threadIdx.x]=1;
+            depths[blockDim.x*stackPoint+threadIdx.x]=0;
                                                                                 //printf("add: %d\n",cell);
             
         }
@@ -131,13 +134,14 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
         }else{
             
             //da controllare se funziona tutto 
-            
+                                                                                    printf("%e\n",(size/pow(2,depth)));
             if(((size/pow(2,depth))/dist<THETA)){
                 double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
                 double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
                 double cubeDist = dist * dist * dist;                              // elevo al cubo la distanza e applico la formula di newton
                 forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
                 forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
+                                                                                    printf("ciao\n");
                                                                                     //printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
             }else{
                 for(int i=0;i<4;i++){
@@ -175,7 +179,26 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
         //printf("\n(%d) ",i);
         xP[i]/=mP[i];
         yP[i]/=mP[i];
-        printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
+                                                                    //printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
+
+    }
+}
+
+__global__ void resetArray(double* xP,double* yP,double* massP,int point){
+    
+    int body=threadIdx.x + blockDim.x * blockIdx.x;
+    int stride= blockDim.x*gridDim.x;
+    point-=4;
+
+    //printf("ppointer: %d",point-(4*body));
+
+    for(int i=point-(4*body);i>pPointer;i-=(4*stride)){
+
+        //printf("\n(%d) ",i);
+        xP[i]=0;
+        yP[i]=0;
+        massP[i]=0;
+                                                                    //printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
 
     }
 }
@@ -284,7 +307,7 @@ __global__ void createTree(double* x, double* y,double* mass, double *upP, doubl
                         childPath=0;
                                                                                         //double down2=down,up2=up,left2=left,right2=right;
 
-                        printf("x cell %e\n",x[cell]);
+                                                                                        //printf("x cell %e\n",x[cell]);
 
                         if(x[cell]<=((right-left)/2)+left){
                             //+2
@@ -494,37 +517,38 @@ void printerTree(int* array, int state, int max,int point){
 
 }
 
-void returnCuda(double* xP,double* yP,double* massP,double* velXP,double* velYP,double* foceXP,double* foceYP){
-    cudaMemcpy(x, xP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);   
-    cudaMemcpy(y, yP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);  
-    cudaMemcpy(m, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
-    cudaMemcpy(velX, velXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);   
-    cudaMemcpy(velY, velYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
-    cudaMemcpy(forceX, foceXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);   
-    cudaMemcpy(forceY, foceYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost); 
+void returnCuda(double* xP,double* yP,double* velXP,double* velYP,double* forceXP,double* forceYP){
+
+    gpuErrchk(cudaMemcpy(x, xP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));   
+    gpuErrchk(cudaMemcpy(y, yP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));  
+    gpuErrchk(cudaMemcpy(velX, velXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));   
+    gpuErrchk(cudaMemcpy(velY, velYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(forceX, forceXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));   
+    gpuErrchk(cudaMemcpy(forceY, forceYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+    
 }
 
 //funzione di esecuzione dei vari kernell
 void compute(int time)
 {
     double *xP, *yP, *massP;
-    double *xR, *yR, *massR;
     
     double *up, *down, *left, *right;
     int *child,*lock;
 
-    double *foceXP,*foceYP,*velXP,*velYP;
+    double *forceXP,*forceYP,*velXP,*velYP;
     
 
     //alloco la memoria dei vari parametrio sul device
-    gpuErrchk(cudaMalloc((void **)&xP, sizeof(double) * maxCells * 4));
-    gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * maxCells * 4));   
-    gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));   
-    gpuErrchk(cudaMalloc((void **)&massP, sizeof(double) * maxCells * 4));
-    gpuErrchk(cudaMalloc((void **)&foceXP, sizeof(double) * numberBody));
-    gpuErrchk(cudaMalloc((void **)&foceYP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&xP, sizeof(double) * maxCells));
+    gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * maxCells));   
+    gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells));   
+    gpuErrchk(cudaMalloc((void **)&massP, sizeof(double) * maxCells));
+    gpuErrchk(cudaMalloc((void **)&forceXP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&forceYP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&velXP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&velYP, sizeof(double) * numberBody));
+    
     gpuErrchk(cudaMalloc((void **)&up, sizeof(double)));
     gpuErrchk(cudaMalloc((void **)&down, sizeof(double)));
     gpuErrchk(cudaMalloc((void **)&left, sizeof(double)));
@@ -537,32 +561,34 @@ void compute(int time)
     cudaMemcpy(massP, m, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
     cudaMemcpy(velXP, velX, sizeof(double) * numberBody, cudaMemcpyHostToDevice);   
     cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice);  
-                                                                                                int* childH=(int*) malloc( sizeof(int) * maxCells * 4);
+                                                                                                int* childH=(int*) malloc( sizeof(int) * maxCells);
     
     gpuErrchk(cudaDeviceSynchronize());
     // eseguo funzioni cuda
     for (int i = 0; i < time; i++)
     {
         // invoco la funzione per settarre la variabile puntatore globale nel device
-        
+
+                                                                                                //printf("vivo\n");
         setPointer<<<1,1>>>(maxCells);
         boundingBox<<<1, 4>>>(xP,yP,numberBody,up, down,left, right,lock);
+        
         // setto array dei figli a -1 (null)
-        cudaMemset(&child[ maxCells - 1], -1, sizeof(int));
-        cudaMemset(&child[ maxCells - 2], -1, sizeof(int));
-        cudaMemset(&child[ maxCells - 3], -1, sizeof(int));
-        cudaMemset(&child[ maxCells - 4], -1, sizeof(int));
-        cudaMemset(&child[ maxCells - 5], -1, sizeof(int));
+        gpuErrchk(cudaMemset(&child[ maxCells - 1], -1, sizeof(int)));
+        gpuErrchk(cudaMemset(&child[ maxCells - 2], -1, sizeof(int)));
+        gpuErrchk(cudaMemset(&child[ maxCells - 3], -1, sizeof(int)));
+        gpuErrchk(cudaMemset(&child[ maxCells - 4], -1, sizeof(int)));
+        gpuErrchk(cudaMemset(&child[ maxCells - 5], -1, sizeof(int)));
 
         cudaDeviceSynchronize();
         // genero l'albero
         createTree<<<1, 4>>>(xP, yP, massP, up, down, left, right, child, maxCells-1, numberBody);
         cudaDeviceSynchronize();
         // sincronizzo i kernel a fine esecuzione
-                                                                                                set0<<<1,1>>>(child);
-                                                                                                cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
+                                                                                                /*set0<<<1,1>>>(child);
+                                                                                                cudaMemcpy(childH,child,sizeof(int) * maxCells,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
-                                                                                                printerTree(childH,0,numberBody,maxCells-1);
+                                                                                                printerTree(childH,0,numberBody,maxCells-1);*/
          
         
         // calcolo centri di massa
@@ -571,14 +597,24 @@ void compute(int time)
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
-        calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,foceXP,foceYP,velXP,velYP,left,right);
+        calculateMovement<<<2,2,sizeof(int)*64*2>>>(child,xP,yP,massP,maxCells-1, numberBody,forceXP,forceYP,velXP,velYP,left,right);
         cudaDeviceSynchronize();
 
-        //resetArray<<<>>>();
+        resetArray<<<2,2>>>(xP,yP,massP,maxCells-1);
+        
+        gpuErrchk(cudaMemset(lock,0,sizeof(int)));
+        gpuErrchk(cudaMemset(child,0,sizeof(int)*maxCells));
+
+        gpuErrchk(cudaMemset(up,0,sizeof(double)));
+        gpuErrchk(cudaMemset(down,0,sizeof(double)));
+        gpuErrchk(cudaMemset(left,0,sizeof(double)));
+        gpuErrchk(cudaMemset(right,0,sizeof(double)));
+
+        cudaDeviceSynchronize();
         
     }
 
-    returnCuda(xP,yP,massP,velXP,velYP,foceXP,foceYP);
+    returnCuda(xP,yP,velXP,velYP,forceXP,forceYP);
     // libero memoria
                                                                                                 free(childH);
     cudaFree(child);

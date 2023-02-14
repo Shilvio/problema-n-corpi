@@ -77,11 +77,6 @@ void boundingBox(particle *p1)
         up = max(p1[i].y, up);
         down = min(p1[i].y, down);
     }
-
-    right += 1;
-    left -= 1;
-    up += 1;
-    down -= 1;
                                                                                 //printf("boundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
 }
 
@@ -372,7 +367,7 @@ void threeForce(quadTree *t, particle *p)
         }
         return;
     }
-
+                                                                                printf("%e\n", (t->right-t->left) );
     if ((t->right-t->left) / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
     {
         double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
@@ -380,7 +375,7 @@ void threeForce(quadTree *t, particle *p)
         double cubeDist = dist * dist * dist;
         p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
         p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-        printf("ciao \n");
+                                                                                printf("ciao \n");
         return;
     }
     threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
