@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-int numberBody, seed, maxTime = 1;
+int numberBody, seed, maxTime = 2;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 double const THETA = 0.75;     // thetha per il calcolo delle forze su particell
@@ -72,10 +72,10 @@ void boundingBox(particle *p1)
     right = p1[0].x;
     for (int i = 0; i < numberBody; i++)
     {
-        right = max(p1[i].x, right);
-        left = min(p1[i].x, left);
-        up = max(p1[i].y, up);
-        down = min(p1[i].y, down);
+        right = max(p1[i].x, right)+1;
+        left = min(p1[i].x, left)-1;
+        up = max(p1[i].y, up)+1;
+        down = min(p1[i].y, down)-1;
     }
                                                                                 //printf("boundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
 }
@@ -356,6 +356,7 @@ void threeForce(quadTree *t, particle *p)
     {
         if (t->p != NULL) // se c'è una sola particella
         {
+                                                                            printf("%e\n", (t->right-t->left) );
             double xDiff = p->x - t->mc->x;                                // calcolo la distanza tra la particella 1 e la 2
             double yDiff = p->y - t->mc->y;                                // (il centro di massa del nodo = particella)
             double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
@@ -367,7 +368,7 @@ void threeForce(quadTree *t, particle *p)
         }
         return;
     }
-                                                                                printf("%e\n", (t->right-t->left) );
+                                                                                
     if ((t->right-t->left) / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
     {
         double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
@@ -443,7 +444,7 @@ void compute(particle *p1, int time)
             // count++;
             insert(&p1[i], c);
         }
-        //printer(c,0);
+        printer(c,0);
         centerMass(c);
         // printf("\ncalcolato il centro di massa\n\n");
         // printer(c,0);

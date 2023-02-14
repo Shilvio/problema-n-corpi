@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 1;
+int maxCells, numberBody, seed, maxTime = 2;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 //double maxSize = 6.162025e+070;
@@ -94,11 +94,18 @@ __global__ void boundingBox(double *xP, double* yP,int numBody,double *up, doubl
    
 }
 
+__global__ void boundingBoxPlas(double *up, double *down, double *left, double *right){
+    *right =*right+1;
+    *left = *left-1;
+    *up = *up+1;
+    *down = *down-1;
+}
+
 __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,int point,int numBody,double* forceX, double* forceY, double* velX, double* velY,double* left,double* right){
     
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     double size=(*right-*left);
-                                                                                            //printf("size: %e\n",size);
+                                                                                //printf("max size: %e\n",size);
 
     //double dist = sqrt(pow(xP[body] - t->mc->x, 2) + pow(yP[body] - t->mc->y, 2));
     __shared__ int stack[stackSize*blockSize];
@@ -109,7 +116,7 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
         if(cell!=-1){
             stackPoint++;
             stack[blockDim.x*stackPoint+threadIdx.x]=cell;
-            depths[blockDim.x*stackPoint+threadIdx.x]=0;
+            depths[blockDim.x*stackPoint+threadIdx.x]=1;
                                                                                 //printf("add: %d\n",cell);
             
         }
@@ -117,31 +124,33 @@ __global__ void calculateMovement(int* child,double* xP,double* yP,double* mP,in
                                                                                 //printf("1 pointer %d\n",stackPoint);
     while (stackPoint>=0){
         int cell = stack[blockDim.x*stackPoint+threadIdx.x];
-                                                                                //printf("exam: %d ",cell);
+                                                                                //printf("exam: %d \n",cell);
         int depth = depths[blockDim.x*stackPoint+threadIdx.x];
         stackPoint--;
         double dist = sqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
         if(dist==0){
+                                                                                //printf("next\n");
             continue;
         }
         if(cell<numBody){
-            double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
-            double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
-            double cubeDist = dist * dist * dist;                              // elevo al cubo la distanza e applico la formula di newton
-            forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
+                                                                                //printf("size: %e\n",(size/pow(2,depth)));
+            double xDiff = xP[body] - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
+            double yDiff = yP[body] - yP[cell];                                 // (il centro di massa del nodo = particella)
+            double cubeDist = dist * dist * dist;                               // elevo al cubo la distanza e applico la formula di newton
+            forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;     // per il calcolo della forza sui 2 assi
             forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
                                                                                 //printf("body %d, cell %d\n",body,cell);
         }else{
             
             //da controllare se funziona tutto 
-                                                                                    printf("%e\n",(size/pow(2,depth)));
+                                                                                    
             if(((size/pow(2,depth))/dist<THETA)){
                 double xDiff = xP[body] - xP[cell];                                // calcolo la distanza tra la particella 1 e la 2
                 double yDiff = yP[body] - yP[cell];                                // (il centro di massa del nodo = particella)
                 double cubeDist = dist * dist * dist;                              // elevo al cubo la distanza e applico la formula di newton
                 forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff;    // per il calcolo della forza sui 2 assi
                 forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
-                                                                                    printf("ciao\n");
+                                                                                    //printf("ciao\n");
                                                                                     //printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
             }else{
                 for(int i=0;i<4;i++){
@@ -459,6 +468,7 @@ void printerTree(int* array, int state, int max,int point){
                 printf("\n(%d) ",i-1);
             }
         }
+        printf("\n");
                                                                                                 return;
         printf("\n\nPosizione dei body: ");
         int counter2=max;
@@ -572,6 +582,10 @@ void compute(int time)
                                                                                                 //printf("vivo\n");
         setPointer<<<1,1>>>(maxCells);
         boundingBox<<<1, 4>>>(xP,yP,numberBody,up, down,left, right,lock);
+
+        cudaDeviceSynchronize();
+
+        boundingBoxPlas<<<1,1>>>(up, down,left, right);
         
         // setto array dei figli a -1 (null)
         gpuErrchk(cudaMemset(&child[ maxCells - 1], -1, sizeof(int)));
@@ -585,10 +599,10 @@ void compute(int time)
         createTree<<<1, 4>>>(xP, yP, massP, up, down, left, right, child, maxCells-1, numberBody);
         cudaDeviceSynchronize();
         // sincronizzo i kernel a fine esecuzione
-                                                                                                /*set0<<<1,1>>>(child);
+                                                                                                set0<<<1,1>>>(child);
                                                                                                 cudaMemcpy(childH,child,sizeof(int) * maxCells,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
-                                                                                                printerTree(childH,0,numberBody,maxCells-1);*/
+                                                                                                printerTree(childH,0,numberBody,maxCells-1);
          
         
         // calcolo centri di massa
