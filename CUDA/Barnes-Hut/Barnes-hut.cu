@@ -250,7 +250,7 @@ __global__ void createTree(double *x, double *y, double *mass, double *upP, doub
     double down = *downP;
     double left = *leftP;
     double right = *rightP;
-    // printf("Bounding box2: up: %e,down: %e,left: %e,right: %e\n",up,down,left,right);
+
     while (!finish)
     {
 
@@ -313,26 +313,21 @@ __global__ void createTree(double *x, double *y, double *mass, double *upP, doub
                 //+0
                 up = ((up - down) / 2) + down;
             }
-            // printf("lavoro su %d\n",father);
             atomicAdd(&x[father], mass[body] * x[body]);
             atomicAdd(&y[father], mass[body] * y[body]);
             atomicAdd(&mass[father], mass[body]);
 
             cell = child[father - childPath];
         }
-        // printf("cell: %d\n",cell);
         // controllo se la cella è libera
         if (cell != -2)
         {
             int lock = father - childPath;
-            // printf("cell2: %d\n",cell);
             // blocco la cella per lavoraci, utilizzando una funzione atomica
             if (atomicCAS(&child[lock], cell, -2) == cell)
             {
                 if (cell == -1)
                 {
-                    // printf("lock:%d id:%d d %f, u %f, r %f, l %f\n",lock,body,down,up,right,left);
-                    // child[body]=lock;
                     child[body] = father;
                     child[lock] = body;
                     finish = true;
@@ -357,34 +352,18 @@ __global__ void createTree(double *x, double *y, double *mass, double *upP, doub
 
                         // inserisco la vecchia particella
                         childPath = 0;
-                        // double down2=down,up2=up,left2=left,right2=right;
-
-                        // printf("x cell %e\n",x[cell]);
 
                         if (x[cell] <= ((right - left) / 2) + left)
                         {
                             //+2
                             childPath += 2;
-                            // right2 = ((right-left)/2)+left;
-                        }
-                        else
-                        {
-                            // left2 = ((right-left)/2)+left;
                         }
                         if (y[cell] > ((up - down) / 2) + down)
                         {
                             //+1
                             childPath += 1;
-                            // down2 = ((up-down)/2)+down;
                         }
-                        else
-                        {
-                            // up2 = ((up-down)/2)+down;
-                        }
-                        // printf("move lock:%d id:%d d %f, u %f, r %f, l %f\n",newCell-childPath,cell,down2,up2,right2,left2);
-                        // child[cell]=newCell-childPath;
 
-                        // printf("lavoro su %d\n",newCell);
                         x[newCell] += mass[cell] * x[cell];
                         y[newCell] += mass[cell] * y[cell];
                         mass[newCell] += mass[cell];
@@ -417,7 +396,7 @@ __global__ void createTree(double *x, double *y, double *mass, double *upP, doub
                             //+0
                             up = ((up - down) / 2) + down;
                         }
-                        // printf("lavoro su %d\n",father);
+
                         x[father] += mass[body] * x[body];
                         y[father] += mass[body] * y[body];
                         mass[father] += mass[body];
@@ -431,19 +410,15 @@ __global__ void createTree(double *x, double *y, double *mass, double *upP, doub
 
                         lock = newCell - childPath;
                     }
-                    // printf("lock:%d id:%d d %f, u %f, r %f, l %f\n",lock,body,down,up,right,left);
-                    // child[body]=lock;
 
                     child[body] = father;
                     child[lock] = body;
                     finish = true;
                 }
             }
-            //__syncthreads();
         }
         cell = child[father - childPath];
     }
-    // printf("%d",cell);
 }
 
 // funzione kernel per inizializzare la variabile globale puntatore
@@ -557,7 +532,6 @@ void printerTree(int *array, int state, int max, int point)
         printf("error");
         return;
     }
-    // printf("%d numero",array[point]);
     if (array[point] < max)
     {
         if (array[point] == -1)
@@ -644,8 +618,6 @@ void compute(int time)
     for (int i = 0; i < time; i++)
     {
         // invoco la funzione per settarre la variabile puntatore globale nel device
-
-        // printf("vivo\n");
         setPointer<<<1, 1>>>(maxCells);
         boundingBox<<<1, 4>>>(xP, yP, numberBody, up, down, left, right, lock);
 
