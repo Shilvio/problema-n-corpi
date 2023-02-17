@@ -45,7 +45,7 @@ __global__ void boundingBox(double *xP, double *yP, int numBody, double *up, dou
     int stride = blockDim.x * gridDim.x;
 
     // controllo se ho una particella da controllare
-    if (id >= numberBody)
+    if (id >= numBody)
     {
         return;
     }
@@ -101,83 +101,109 @@ __global__ void boundingBox(double *xP, double *yP, int numBody, double *up, dou
     if (threadIdx.x == 0)
     {
         // utiliziamo un mutex per accedere alla memoria globale evitando concorrenza
-        while (atomicCAS(lock, 0, 1) != 0)
-            ;
+        while (atomicCAS(lock, 0, 1) != 0);
 
         *left = fminf(*left, leftCache[0]);
         *right = fmaxf(*right, rightCache[0]);
         *up = fmaxf(*up, upCache[0]);
         *down = fminf(*down, downCache[0]);
         atomicExch(lock, 0);
-        // printf("Bounding box: up: %e,down: %e,left: %e,right: %e",*up,*down,*left,*right);
     }
 }
 
-__global__ void boundingBoxPlas(double *up, double *down, double *left, double *right)
+// espandiamo la bounding box, per allinearci con i calcoli svolti nell'implementazione single thread
+__global__ void boundingBoxExpander(double *up, double *down, double *left, double *right)
 {
     *right = *right + 1;
     *left = *left - 1;
     *up = *up + 1;
     *down = *down - 1;
+                                                                        printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
 }
 
-__global__ void calculateMovement(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *velX, double *velY, double *left, double *right)
+__global__ void calculateMovment(double *xP, double *yP, double *mP,double *forceX, double *forceY, double *velX, double *velY){
+
+    int body = threadIdx.x + blockDim.x * blockIdx.x;
+
+    xP[body] += deltaTime * velX[body];
+    yP[body] += deltaTime * velY[body];
+    velX[body] += deltaTime / mP[body] * forceX[body];
+    velY[body] += deltaTime / mP[body] * forceY[body];
+}
+
+// funzione che calcola il movimento delle particelle e le rispettive forze
+__global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *velX, double *velY, double *left, double *right)
 {
 
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     double size = (*right - *left);
-    // printf("max size: %e\n",size);
+    double forceXb = forceX[body];
+    double forceYb = forceY[body];
+    double xPb = xP[body];
+    double yPb = yP[body];
+    double mPb = mP[body];
 
-    // double dist = sqrt(pow(xP[body] - t->mc->x, 2) + pow(yP[body] - t->mc->y, 2));
+    // utlizziamo due stack, uno per il calcolo del padre e uno per le profondità
     __shared__ int stack[stackSize * blockSize];
     __shared__ int depths[stackSize * blockSize];
+    //il puntatore parte a -1, utilizzato come valore nullo
     int stackPoint = -1;
+
+    // ciclo per quelli che sono sicuro siano i suoi figli e aggiorno i rispettivi stack
     for (int i = 0; i < 4; i++)
     {
         int cell = child[point - i];
         if (cell != -1)
-        {
+        {   
             stackPoint++;
             stack[blockDim.x * stackPoint + threadIdx.x] = cell;
             depths[blockDim.x * stackPoint + threadIdx.x] = 1;
         }
     }
 
+    // ciclo finchè ho filgi da analizzare, carico il figlio e aggiorno lo stack pointer
     while (stackPoint >= 0)
     {
         int cell = stack[blockDim.x * stackPoint + threadIdx.x];
         int depth = depths[blockDim.x * stackPoint + threadIdx.x];
         stackPoint--;
-        double dist = sqrt(pow(xP[body] - xP[cell], 2) + pow(yP[body] - yP[cell], 2));
+        double dist = sqrtf(pow(xPb - xP[cell], 2) + pow(yPb - yP[cell], 2));
+
+        // controllo di non star confrontando la particella con se stessa
         if (dist == 0)
         {
             continue;
         }
+        // se sto guardando una particella calcolo le forze
         if (cell < numBody)
         {
-            // printf("size: %e\n",(size/pow(2,depth)));
-            double xDiff = xP[body] - xP[cell];                             // calcolo la distanza tra la particella 1 e la 2
-            double yDiff = yP[body] - yP[cell];                             // (il centro di massa del nodo = particella)
+                                                                                    // printf("size: %e\n",(size/pow(2,depth)));
+            double xDiff = xPb - xP[cell];                             // calcolo la distanza tra la particella 1 e la 2
+            double yDiff = yPb - yP[cell];                             // (il centro di massa del nodo = particella)
             double cubeDist = dist * dist * dist;                           // elevo al cubo la distanza e applico la formula di newton
-            forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
-            forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
-            // printf("body %d, cell %d\n",body,cell);
+            forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
+            forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
+                                                                                    printf("dist:%e mass:%e xPcell: %e cell: %d\n",mPb,mP[cell],yP[cell],cell);
+                                                                                    // printf("body %d, cell %d\n",body,cell);
         }
         else
         {
-
+            // se va oltre il THETA calcolo approssimo, usiamo solo la x per il calcolo del tetha,  \
+                (si potrebbe usare un abs max, per vedere chi è il massimo tra x e y) 
             if (((size / pow(2, depth)) / dist < THETA))
-            {
-                double xDiff = xP[body] - xP[cell];                             // calcolo la distanza tra la particella 1 e la 2
-                double yDiff = yP[body] - yP[cell];                             // (il centro di massa del nodo = particella)
-                double cubeDist = dist * dist * dist;                           // elevo al cubo la distanza e applico la formula di newton
-                forceX[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
-                forceY[body] -= ((G * mP[body] * mP[cell]) / cubeDist) * yDiff;
-
-                // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
+            {   
+                double xDiff = xPb - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
+                double yDiff = yPb - yP[cell];                                 // (il centro di massa del nodo = particella)
+                double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
+                forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
+                forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
+                                                                                    
+                                                                                    printf("ciao\n");
+                                                                                    // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
             }
             else
             {
+                // aggiungo i figli allo stack 
                 for (int i = 0; i < 4; i++)
                 {
                     int newCell = child[cell - i];
@@ -192,11 +218,10 @@ __global__ void calculateMovement(int *child, double *xP, double *yP, double *mP
         }
     }
 
-    // printf("body %d, X %e, Y %e\n",body,forceX[body],forceY[body]);
-    xP[body] += deltaTime * velX[body];
-    yP[body] += deltaTime * velY[body];
-    velX[body] += deltaTime / mP[body] * forceX[body];
-    velY[body] += deltaTime / mP[body] * forceY[body];
+                                                                                // printf("body %d, X %e, Y %e\n",body,forceX[body],forceY[body]);
+    // aggiorno i valori delle particelle relative al delta-time
+    forceX[body] = forceXb;
+    forceY[body] = forceYb;
 }
 
 // funzione di calcolo dei centri di massa
@@ -263,20 +288,20 @@ __global__ void createTree(double *x, double *y, double *mass, double *upP, doub
             // assegno i path ai figli
             if (x[body] <= ((right - left) / 2) + left)
             {
-                //+2                            //    _________________________
-                childPath += 2;                      //   |          3 |          1 |
-                right = ((right - left) / 2) + left; //   |    (NW)    |    (NE)    |
-            }
-            else
-            { //   |            |            |
-                //+0                            //   |     -+     |     ++     |
-                left = ((right - left) / 2) + left; //   |____________|____________|
-            }                                       //   |          2 |          0 |
-            if (y[body] > ((up - down) / 2) + down)
-            { //   |     --     |     +-     |
-                //+1                            //   |            |            |
-                childPath += 1;                  //   |    (SW)    |    (SE)    |
-                down = ((up - down) / 2) + down; //   |____________|____________|
+                //+2                                    
+                childPath += 2;                         
+                right = ((right - left) / 2) + left;    //    _________________________
+            }                                           //   |          3 |          1 |
+            else                                        //   |    (NW)    |    (NE)    |
+            {                                           //   |            |            |
+                //+0                                    //   |     -+     |     ++     |
+                left = ((right - left) / 2) + left;     //   |____________|____________|
+            }                                           //   |          2 |          0 |
+            if (y[body] > ((up - down) / 2) + down)     //   |     --     |     +-     |
+            {                                           //   |            |            |
+                //+1                                    //   |    (SW)    |    (SE)    |
+                childPath += 1;                         //   |____________|____________|
+                down = ((up - down) / 2) + down;        
             }
             else
             {
@@ -623,7 +648,7 @@ void compute(int time)
 
         cudaDeviceSynchronize();
 
-        boundingBoxPlas<<<1, 1>>>(up, down, left, right);
+        boundingBoxExpander<<<1, 1>>>(up, down, left, right);
 
         // setto array dei figli a -1 (null)
         gpuErrchk(cudaMemset(&child[maxCells - 1], -1, sizeof(int)));
@@ -648,8 +673,12 @@ void compute(int time)
         cudaDeviceSynchronize();
 
         // calcolo spostamento particelle
-        calculateMovement<<<2, 2, sizeof(int) * 64 * 2>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, velXP, velYP, left, right);
+        calculateForce<<<2, 2, sizeof(int) * 64 * 2>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, velXP, velYP, left, right);
         cudaDeviceSynchronize();
+
+        calculateMovment<<<2,2>>>(xP, yP, massP,forceXP, forceYP, velXP, velYP);
+        cudaDeviceSynchronize();
+
 
         resetArray<<<2, 2>>>(xP, yP, massP, maxCells - 1);
 

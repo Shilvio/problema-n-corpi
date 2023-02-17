@@ -72,12 +72,16 @@ void boundingBox(particle *p1)
     right = p1[0].x;
     for (int i = 0; i < numberBody; i++)
     {
-        right = max(p1[i].x, right)+1;
-        left = min(p1[i].x, left)-1;
-        up = max(p1[i].y, up)+1;
-        down = min(p1[i].y, down)-1;
+        right = max(p1[i].x, right);
+        left = min(p1[i].x, left);
+        up = max(p1[i].y, up);
+        down = min(p1[i].y, down);
     }
-                                                                                //printf("boundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
+    right += 1;
+    left -= 1;
+    up += 1;
+    down -= 1;
+                                                                                printf("\n\nboundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -356,12 +360,13 @@ void threeForce(quadTree *t, particle *p)
     {
         if (t->p != NULL) // se c'è una sola particella
         {
-                                                                            printf("%e\n", (t->right-t->left) );
+                                                                            //printf("size: %e\n", (t->right-t->left) );
             double xDiff = p->x - t->mc->x;                                // calcolo la distanza tra la particella 1 e la 2
             double yDiff = p->y - t->mc->y;                                // (il centro di massa del nodo = particella)
             double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
             p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
             p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+                                                                            printf("dist:%e mass: %e xdif: %e \n",p->mass, t->mc->mass, t->mc->y);
                                                                             //printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * xDiff);
             // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
             // printf("x=%e y=%e px=%e py=%e\n",t->mc->x,t->mc->y,p->x,p->velY);
@@ -376,7 +381,6 @@ void threeForce(quadTree *t, particle *p)
         double cubeDist = dist * dist * dist;
         p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
         p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-                                                                                printf("ciao \n");
         return;
     }
     threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
