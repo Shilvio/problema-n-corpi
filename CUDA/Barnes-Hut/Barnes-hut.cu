@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 2;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
+int maxCells, numberBody, seed, maxTime = 5;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
 char fileInput[] = "../../Generate/particle.txt";  // file di input contenente le particelle iniziali
 double *x, *y, *m, *velX, *velY, *forceX, *forceY; // futuri puntatori agli array dei field delle particelle (posizioni: x,y,  masse, velocità: x,y,  forze: x,y)
 
@@ -107,6 +107,7 @@ __global__ void boundingBox(double *xP, double *yP, int numBody, double *up, dou
         *right = fmaxf(*right, rightCache[0]);
         *up = fmaxf(*up, upCache[0]);
         *down = fminf(*down, downCache[0]);
+
         atomicExch(lock, 0);
     }
 }
@@ -118,12 +119,16 @@ __global__ void boundingBoxExpander(double *up, double *down, double *left, doub
     *left = *left - 1;
     *up = *up + 1;
     *down = *down - 1;
-                                                                        printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
+                                                                        //printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
 }
 
-__global__ void calculateMovment(double *xP, double *yP, double *mP,double *forceX, double *forceY, double *velX, double *velY){
+__global__ void calculateMovement(double *xP, double *yP, double *mP,double *forceX, double *forceY, double *velX, double *velY,int numBody){
 
     int body = threadIdx.x + blockDim.x * blockIdx.x;
+
+    if(body>=numBody){
+        return;
+    };
 
     xP[body] += deltaTime * velX[body];
     yP[body] += deltaTime * velY[body];
@@ -132,10 +137,16 @@ __global__ void calculateMovment(double *xP, double *yP, double *mP,double *forc
 }
 
 // funzione che calcola il movimento delle particelle e le rispettive forze
-__global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *velX, double *velY, double *left, double *right)
+__global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *left, double *right)
 {
+    
 
     int body = threadIdx.x + blockDim.x * blockIdx.x;
+
+    if(body>=numBody){
+        return;
+    };
+    
     double size = (*right - *left);
     double forceXb = forceX[body];
     double forceYb = forceY[body];
@@ -183,7 +194,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
             double cubeDist = dist * dist * dist;                           // elevo al cubo la distanza e applico la formula di newton
             forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
             forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
-                                                                                    printf("dist:%e mass:%e xPcell: %e cell: %d\n",mPb,mP[cell],yP[cell],cell);
+                                                                                    //printf("dist:%e mass:%e xPcell: %e cell: %d\n",mPb,mP[cell],yP[cell],cell);
                                                                                     // printf("body %d, cell %d\n",body,cell);
         }
         else
@@ -198,7 +209,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                 forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
                 forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
                                                                                     
-                                                                                    printf("ciao\n");
+                                                                                    //printf("ciao\n");
                                                                                     // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
             }
             else
@@ -227,33 +238,34 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
 // funzione di calcolo dei centri di massa
 __global__ void calculateCenterMass(int *child, double *xP, double *yP, double *mP, int point)
 {
-
-    int body = threadIdx.x + blockDim.x * blockIdx.x;
+    
+    int id = threadIdx.x + blockDim.x * blockIdx.x;
     int stride = blockDim.x * gridDim.x;
     point -= 4;
-
-    for (int i = point - (4 * body); i > pPointer; i -= (4 * stride))
+ 
+    for (int i = point - (4 * id); i > pPointer; i -= (4 * stride))
     {
         xP[i] /= mP[i];
         yP[i] /= mP[i];
     }
 }
 
+//resetta gli array per il prossimo timestep
 __global__ void resetArray(double *xP, double *yP, double *massP, int point)
 {
 
-    int body = threadIdx.x + blockDim.x * blockIdx.x;
+    int id = threadIdx.x + blockDim.x * blockIdx.x;
     int stride = blockDim.x * gridDim.x;
     point -= 4;
 
-    for (int i = point - (4 * body); i > pPointer; i -= (4 * stride))
+    for (int i = point - (4 * id); i > pPointer; i -= (4 * stride))
     {
 
-        // printf("\n(%d) ",i);
+                                                            // printf("\n(%d) ",i);
         xP[i] = 0;
         yP[i] = 0;
         massP[i] = 0;
-        // printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
+                                                            // printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
     }
 }
 
@@ -500,11 +512,11 @@ FILE *initial()
     return file;
 }
 
-__global__ void set0(int *child)
-{
-    child[pPointer] = 0;
-    child[pPointer - 1] = 0;
-}
+                                                                                                                                        __global__ void set0(int *child)
+                                                                                                                                        {
+                                                                                                                                            child[pPointer] = 0;
+                                                                                                                                            child[pPointer - 1] = 0;
+                                                                                                                                        }
 
 // funzione grafica per stampare l'albero creato da crateTree()
 void printerTree(int *array, int state, int max, int point)
@@ -593,6 +605,7 @@ void printerTree(int *array, int state, int max, int point)
     printerTree(array, state + 1, max, array[point] - 3);
 }
 
+// riporto i valori da kernel a host
 void returnCuda(double *xP, double *yP, double *velXP, double *velYP, double *forceXP, double *forceYP)
 {
 
@@ -623,7 +636,6 @@ void compute(int time)
     gpuErrchk(cudaMalloc((void **)&forceYP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&velXP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&velYP, sizeof(double) * numberBody));
-
     gpuErrchk(cudaMalloc((void **)&up, sizeof(double)));
     gpuErrchk(cudaMalloc((void **)&down, sizeof(double)));
     gpuErrchk(cudaMalloc((void **)&left, sizeof(double)));
@@ -631,20 +643,19 @@ void compute(int time)
     gpuErrchk(cudaMalloc((void **)&lock, sizeof(int)));
 
     // copio array delle posizioni x, y e masse delle particelle
-    cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    cudaMemcpy(massP, m, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    cudaMemcpy(velXP, velX, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    int *childH = (int *)malloc(sizeof(int) * maxCells);
-
-    gpuErrchk(cudaDeviceSynchronize());
+    gpuErrchk(cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(massP, m, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(velXP, velX, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
+                                                                                                                int *childH = (int *)malloc(sizeof(int) * maxCells);
+    cudaDeviceSynchronize();
     // eseguo funzioni cuda
     for (int i = 0; i < time; i++)
     {
         // invoco la funzione per settarre la variabile puntatore globale nel device
         setPointer<<<1, 1>>>(maxCells);
-        boundingBox<<<1, 4>>>(xP, yP, numberBody, up, down, left, right, lock);
+        boundingBox<<<1, 4>>>(xP, yP, numberBody, up, down, left, right, lock);     //sizeBlock
 
         cudaDeviceSynchronize();
 
@@ -655,35 +666,33 @@ void compute(int time)
         gpuErrchk(cudaMemset(&child[maxCells - 2], -1, sizeof(int)));
         gpuErrchk(cudaMemset(&child[maxCells - 3], -1, sizeof(int)));
         gpuErrchk(cudaMemset(&child[maxCells - 4], -1, sizeof(int)));
-        gpuErrchk(cudaMemset(&child[maxCells - 5], -1, sizeof(int)));
 
         cudaDeviceSynchronize();
         // genero l'albero
-        createTree<<<1, 4>>>(xP, yP, massP, up, down, left, right, child, maxCells - 1, numberBody);
+        createTree<<<1, 4>>>(xP, yP, massP, up, down, left, right, child, maxCells - 1, numberBody); //precisa
         cudaDeviceSynchronize();
         // sincronizzo i kernel a fine esecuzione
-        set0<<<1, 1>>>(child);
-        cudaMemcpy(childH, child, sizeof(int) * maxCells, cudaMemcpyDeviceToHost);
-        // ritorno l'albero a l'host per la stampa e lo stampo
-        printerTree(childH, 0, numberBody, maxCells - 1);
+                                                                                                                    //set0<<<1, 1>>>(child);
+                                                                                                                    cudaMemcpy(childH, child, sizeof(int) * maxCells, cudaMemcpyDeviceToHost);
+                                                                                                                    // ritorno l'albero a l'host per la stampa e lo stampo
+                                                                                                                    //printerTree(childH, 0, numberBody, maxCells - 1);
 
         // calcolo centri di massa
 
-        calculateCenterMass<<<2, 2>>>(child, xP, yP, massP, maxCells - 1);
+        calculateCenterMass<<<2, 2>>>(child, xP, yP, massP, maxCells - 1); 
         cudaDeviceSynchronize();
 
         // calcolo spostamento particelle
-        calculateForce<<<2, 2, sizeof(int) * 64 * 2>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, velXP, velYP, left, right);
+        calculateForce<<<2, 2>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, left, right);    //precisa sizeBlock
         cudaDeviceSynchronize();
 
-        calculateMovment<<<2,2>>>(xP, yP, massP,forceXP, forceYP, velXP, velYP);
+        calculateMovement<<<2,2>>>(xP, yP, massP,forceXP, forceYP, velXP, velYP, numberBody); //precisa
         cudaDeviceSynchronize();
 
 
         resetArray<<<2, 2>>>(xP, yP, massP, maxCells - 1);
 
         gpuErrchk(cudaMemset(lock, 0, sizeof(int)));
-        gpuErrchk(cudaMemset(child, 0, sizeof(int) * maxCells));
 
         gpuErrchk(cudaMemset(up, 0, sizeof(double)));
         gpuErrchk(cudaMemset(down, 0, sizeof(double)));
@@ -693,14 +702,16 @@ void compute(int time)
         cudaDeviceSynchronize();
     }
 
+    //ritorno i dati
     returnCuda(xP, yP, velXP, velYP, forceXP, forceYP);
+
     // libero memoria
     free(childH);
     cudaFree(child);
     cudaFree(xP);
     cudaFree(yP);
     cudaFree(massP);
-    // printf("memoria liberata sul device \n");
+                                                                // printf("memoria liberata sul device \n");
 }
 
 // stampa le particelle
