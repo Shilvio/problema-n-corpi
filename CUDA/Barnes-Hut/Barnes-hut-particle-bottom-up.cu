@@ -36,12 +36,39 @@ __device__ int h = 0;
 // funzioni gpu
 
 //funzione di calcolo dei centri di massa
-__global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP){
+__global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,double numBody){
     
-    //int body=threadIdx.x + blockDim.x * blockIdx.x;
-    
+    int body=threadIdx.x + blockDim.x * blockIdx.x;
+    if(body>=numBody){
+        return;
+    }
+    int cell=child[body];
+    while (true){
+        double mass=0;
+        double mcX=0;
+        double mcY=0;
 
-
+        for(int i=0;i<4;i++){
+            int childCell=child[cell-i];
+            if(childCell==-1){
+                continue;
+            }
+            double massCell=mP[childCell];
+            if(massCell==0){
+                return;
+            }
+            mass+=massCell;
+            mcX+=massCell*xP[childCell];
+            mcY+=massCell*yP[childCell];
+        }
+        xP[cell]=mcX/mass;
+        yP[cell]=mcY/mass;
+        mP[cell]=mass;
+        cell=child[cell-4];
+        if(cell==-1){
+            return;
+        }
+    }
 }
 
 // funzione per la creazione dell'albero
@@ -379,7 +406,7 @@ void compute(int time)
          
         
         // calcolo centri di massa
-        calculateCenterMass<<<4,1>>>(childH,xP,yP,massP);
+        calculateCenterMass<<<4,1>>>(childH,xP,yP,massP,numberBody);
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
