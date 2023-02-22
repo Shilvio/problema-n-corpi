@@ -64,6 +64,7 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
         xP[cell]=mcX/mass;
         yP[cell]=mcY/mass;
         mP[cell]=mass;
+                                                                                printf("cell %d, mass %e\n",cell,mass);
         cell=child[cell-4];
         if(cell==-1){
             return;
@@ -406,14 +407,14 @@ void compute(int time)
          
         
         // calcolo centri di massa
-        calculateCenterMass<<<4,1>>>(childH,xP,yP,massP,numberBody);
+        calculateCenterMass<<<4,1>>>(child,xP,yP,massP,numberBody);
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
         // calculateMove<<<?>>>(?);
 
-        gpuErrchk(cudaMalloc((void **)&massR, sizeof(double) * maxCells * 4));
-        cudaMemcpy(massR, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToDevice);
+        //gpuErrchk(cudaMalloc((void **)&massR, sizeof(double) * maxCells * 4));
+        //cudaMemcpy(massR, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToDevice);
         // cudaDeviceSynchronize();
 
         cudaFree(massP);
