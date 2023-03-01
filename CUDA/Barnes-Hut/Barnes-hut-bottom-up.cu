@@ -64,7 +64,7 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
         xP[cell]=mcX/mass;
         yP[cell]=mcY/mass;
         mP[cell]=mass;
-                                                                                printf("cell %d, mass %e\n",cell,mass);
+                                                                                printf("cell %d, x %e, y %e, mass %e\n",cell,xP[cell],yP[cell],mass);
         cell=child[cell-4];
         if(cell==-1){
             return;

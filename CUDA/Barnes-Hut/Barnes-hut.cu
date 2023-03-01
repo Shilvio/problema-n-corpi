@@ -3,15 +3,18 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 5;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
+int maxCells, numberBody, seed, maxTime = 10;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
 char fileInput[] = "../../Generate/particle.txt";  // file di input contenente le particelle iniziali
 double *x, *y, *m, *velX, *velY, *forceX, *forceY; // futuri puntatori agli array dei field delle particelle (posizioni: x,y,  masse, velocità: x,y,  forze: x,y)
 
+cudaDeviceProp pr;
+
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
-__device__ const double THETA = 0.75;    // theta per il calcolo delle forze su particell
+__device__ const double THETA = 1;    // theta per il calcolo delle forze su particell
 __device__ const int stackSize = 16;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
 __device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
 __device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle
@@ -119,6 +122,11 @@ __global__ void boundingBoxExpander(double *up, double *down, double *left, doub
     *left = *left - 1;
     *up = *up + 1;
     *down = *down - 1;
+
+   /**right=20;
+   *left=-20;
+   *up =20;
+   *down =-20;*/
                                                                         //printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
 }
 
@@ -208,7 +216,6 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                 double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
                 forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
                 forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
-                                                                                    
                                                                                     //printf("ciao\n");
                                                                                     // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
             }
@@ -229,7 +236,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
         }
     }
 
-                                                                                // printf("body %d, X %e, Y %e\n",body,forceX[body],forceY[body]);
+                                                                                //printf("body %d, X %e, Y %e\n",body,forceX[body],forceY[body]);
     // aggiorno i valori delle particelle relative al delta-time
     forceX[body] = forceXb;
     forceY[body] = forceYb;
@@ -247,6 +254,7 @@ __global__ void calculateCenterMass(int *child, double *xP, double *yP, double *
     {
         xP[i] /= mP[i];
         yP[i] /= mP[i];
+                                                                                                    //printf("cell %d, x %e, y %e, mass %e\n",i,xP[i],yP[i],mP[i]);
     }
 }
 
@@ -465,6 +473,18 @@ __global__ void setPointer(int num)
 }
 
 // funzioni host
+int statGPU()
+{
+    int numberGPU;
+    cudaGetDeviceCount(&numberGPU);
+    if (numberGPU < 1)
+    {
+        printf("Non sono state rilevate GPU Cuda per esegiure il programma");
+        exit(1);
+    } 
+
+    cudaGetDeviceProperties(&pr, 0);
+}
 
 void getInput(FILE *file)
 {
@@ -486,10 +506,10 @@ void getInput(FILE *file)
         // imposto le forze iniziali a zero
         forceX[i] = 0;
         forceY[i] = 0;
-        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",
-               i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
+        //printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",
+          //     i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
-    printf("\n");
+    //printf("\n");
     // chiudo il file
     fclose(file);
 }
@@ -507,8 +527,8 @@ FILE *initial()
     fscanf(file, "%d", &numberBody);
     printf("numero particelle: %d\n", numberBody);
     // calcolo max cell offset
-    maxCells = ((numberBody * 2 + 50) * 4);
-    // maxCells = ((numberBody * 2 + 12000) * 4);
+    //maxCells = ((numberBody * 2 + 50) * 4);
+    maxCells = ((numberBody * 2 + 12000) * 4);
     return file;
 }
 
@@ -627,6 +647,30 @@ void compute(int time)
 
     double *forceXP, *forceYP, *velXP, *velYP;
 
+    //variabili di ottimizzazione GPU
+    int boundingNumBlocks=(numberBody/blockSize)+1;
+
+    int preciseNumThread=pr.maxThreadsPerBlock;
+    int preciseNumBlocks;
+    int preciseNumBlockSize=(numberBody/blockSize)+1;
+
+    if(numberBody<preciseNumThread){
+
+        preciseNumBlocks = 1;
+        preciseNumThread = numberBody;
+
+    }else{
+
+        if(pr.maxThreadsPerMultiProcessor%preciseNumThread!=0){
+
+            preciseNumThread=pr.maxThreadsPerMultiProcessor/2;
+
+        }
+
+        preciseNumBlocks=(numberBody/preciseNumThread)+1;
+
+    }
+
     // alloco la memoria dei vari parametrio sul device
     gpuErrchk(cudaMalloc((void **)&xP, sizeof(double) * maxCells));
     gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * maxCells));
@@ -655,7 +699,8 @@ void compute(int time)
     {
         // invoco la funzione per settarre la variabile puntatore globale nel device
         setPointer<<<1, 1>>>(maxCells);
-        boundingBox<<<1, 4>>>(xP, yP, numberBody, up, down, left, right, lock);     //sizeBlock
+        
+        boundingBox<<<boundingNumBlocks, blockSize>>>(xP, yP, numberBody, up, down, left, right, lock);     //sizeBlock
 
         cudaDeviceSynchronize();
 
@@ -669,31 +714,30 @@ void compute(int time)
 
         cudaDeviceSynchronize();
         // genero l'albero
-        createTree<<<1, 4>>>(xP, yP, massP, up, down, left, right, child, maxCells - 1, numberBody); //precisa
+        createTree<<<preciseNumBlocks, preciseNumThread>>>(xP, yP, massP, up, down, left, right, child, maxCells - 1, numberBody); //precisa
         cudaDeviceSynchronize();
         // sincronizzo i kernel a fine esecuzione
                                                                                                                     //set0<<<1, 1>>>(child);
                                                                                                                     cudaMemcpy(childH, child, sizeof(int) * maxCells, cudaMemcpyDeviceToHost);
                                                                                                                     // ritorno l'albero a l'host per la stampa e lo stampo
                                                                                                                     //printerTree(childH, 0, numberBody, maxCells - 1);
+                                                                                                                    //printf("next\n\n");
 
         // calcolo centri di massa
 
-        calculateCenterMass<<<2, 2>>>(child, xP, yP, massP, maxCells - 1); 
+        calculateCenterMass<<<preciseNumBlocks, preciseNumThread>>>(child, xP, yP, massP, maxCells - 1); 
         cudaDeviceSynchronize();
 
         // calcolo spostamento particelle
-        calculateForce<<<2, 2>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, left, right);    //precisa sizeBlock
+        calculateForce<<<preciseNumBlockSize, blockSize>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, left, right);    //precisa sizeBlock
         cudaDeviceSynchronize();
 
-        calculateMovement<<<2,2>>>(xP, yP, massP,forceXP, forceYP, velXP, velYP, numberBody); //precisa
+        calculateMovement<<<preciseNumBlocks,preciseNumThread>>>(xP, yP, massP,forceXP, forceYP, velXP, velYP, numberBody); //precisa
         cudaDeviceSynchronize();
 
-
-        resetArray<<<2, 2>>>(xP, yP, massP, maxCells - 1);
+        resetArray<<<preciseNumBlocks, preciseNumThread>>>(xP, yP, massP, maxCells - 1);
 
         gpuErrchk(cudaMemset(lock, 0, sizeof(int)));
-
         gpuErrchk(cudaMemset(up, 0, sizeof(double)));
         gpuErrchk(cudaMemset(down, 0, sizeof(double)));
         gpuErrchk(cudaMemset(left, 0, sizeof(double)));
@@ -737,11 +781,18 @@ void printerFile()
 }
 
 int main()
-{
+{   clock_t start, end;
+    double cpu_time_used;  
+    // verifico le stat della gpu e la sua presenza
+    statGPU();
     // avvio getInput
     getInput(initial());
     // avvio compute
+    start = clock();
     compute(maxTime);
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     // stampo i risultati del calcolo
     printer();
 }

@@ -3,11 +3,14 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 
-int numberBody, seed, maxTime = 5;
+int count=0;
+
+int numberBody, seed, maxTime =10;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
-double const THETA = 0.75;     // thetha per il calcolo delle forze su particell
+double const THETA = 1;     // thetha per il calcolo delle forze su particell 0.75
 double maxSize;
 double up,down,left,right;
 int deltaTime=1;
@@ -81,7 +84,7 @@ void boundingBox(particle *p1)
     left -= 1;
     up += 1;
     down -= 1;
-                                                                                printf("\n\nboundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
+                                                                                 //printf("\n\nboundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -283,7 +286,7 @@ void getInput(FILE *file, particle *p1)
         fscanf(file, "%lf%lf%lf%lf%lf", &p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY); // prendo i dati dal file
         p1[i].forceX = 0;                                                                           // imposto le forze iniziali a zero
         p1[i].forceY = 0;
-        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(file); // chiudo il file
 }
@@ -348,10 +351,11 @@ massCenter *centerMass(quadTree *c)
 
 // funzione per applicare le forze alle particelle
 void threeForce(quadTree *t, particle *p)
-{
+{   
     // printf("id=%s",t->id);
     // printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
     double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));
+    
     if (dist == 0)
     {
         return;
@@ -366,7 +370,7 @@ void threeForce(quadTree *t, particle *p)
             double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
             p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
             p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-                                                                            printf("dist:%e mass: %e xdif: %e \n",p->mass, t->mc->mass, t->mc->y);
+                                                                            //printf("dist:%e mass: %e xdif: %e \n",p->mass, t->mc->mass, t->mc->y);
                                                                             //printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * xDiff);
             // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
             // printf("x=%e y=%e px=%e py=%e\n",t->mc->x,t->mc->y,p->x,p->velY);
@@ -381,6 +385,7 @@ void threeForce(quadTree *t, particle *p)
         double cubeDist = dist * dist * dist;
         p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
         p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+                                                                            //printf("ciao\n");
         return;
     }
     threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
@@ -448,14 +453,15 @@ void compute(particle *p1, int time)
             // count++;
             insert(&p1[i], c);
         }
-        printer(c,0);
+        //printer(c,0);
+        //printf("next\n\n");
         centerMass(c);
         // printf("\ncalcolato il centro di massa\n\n");
         // printer(c,0);
         for (int i = 0; i < numberBody; i++)
         {
             // printf("\n");
-            
+            count++;
             threeForce(c, &p1[i]);
             
             //printf("body %d, X %e, Y %e\n",i,p1[i].forceX,p1[i].forceY);
@@ -470,13 +476,18 @@ void compute(particle *p1, int time)
 }
 
 int main()
-{
+{   
+    clock_t start, end;
+    double cpu_time_used;  
     FILE *file = initial();                               // apro il file
     particle *p1 = malloc(sizeof(particle) * numberBody); // alloco la memoria per l'array che conterrà tutte le particelle (p1)
     getInput(file, p1);                                   // lancio lo script per recuperare le particelle
     printf("\n");
-
+    start = clock();
     compute(p1, maxTime); // applico la funzione compute per gestire il programma
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     printerAlt(p1);       // stampo i risultati
     return 0;
 }
