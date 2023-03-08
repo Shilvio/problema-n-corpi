@@ -6,7 +6,7 @@
 #include <time.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 20;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
+int maxCells, numberBody, seed, maxTime = 10;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
 char fileInput[] = "../../Generate/particle.txt";  // file di input contenente le particelle iniziali
 double *x, *y, *m, *velX, *velY, *forceX, *forceY; // futuri puntatori agli array dei field delle particelle (posizioni: x,y,  masse, velocità: x,y,  forze: x,y)
 
@@ -15,7 +15,7 @@ cudaDeviceProp pr;
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
 __device__ const double THETA = 1;    // theta per il calcolo delle forze su particell
-__device__ const int stackSize = 16;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
+__device__ const int stackSize = 24;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
 __device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
 __device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle
 __device__ const int deltaTime = 1;      // delta time
@@ -157,8 +157,6 @@ __global__ void calculateMovement(double *xP, double *yP, double *mP,double *for
 // funzione che calcola il movimento delle particelle e le rispettive forze
 __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *left, double *right)
 {
-    
-
     int body = threadIdx.x + blockDim.x * blockIdx.x;
 
     if(body>=numBody){
@@ -193,6 +191,10 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
     // ciclo finchè ho filgi da analizzare, carico il figlio e aggiorno lo stack pointer
     while (stackPoint >= 0)
     {
+        if(blockDim.x * stackPoint + threadIdx.x>=stackSize * blockSize){
+                                                                                                    printf("Tua sorella\n");
+            return;
+        }
         int cell = stack[blockDim.x * stackPoint + threadIdx.x];
         int depth = depths[blockDim.x * stackPoint + threadIdx.x];
         stackPoint--;
@@ -238,6 +240,10 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                     if (newCell != -1)
                     {
                         stackPoint++;
+                        if(blockDim.x * stackPoint + threadIdx.x>=stackSize * blockSize){
+                                                                                                                printf("Tua sorella\n");
+                            return;
+                        }
                         stack[blockDim.x * stackPoint + threadIdx.x] = newCell;
                         depths[blockDim.x * stackPoint + threadIdx.x] = depth + 1;
                     }
@@ -708,7 +714,6 @@ void compute(int time)
     // eseguo funzioni cuda
     for (int i = 0; i < time; i++)
     {
-        _sleep(2000);
         printf("%i\n",i);
         // invoco la funzione per settarre la variabile puntatore globale nel device
         setPointer<<<1, 1>>>(maxCells);
@@ -754,10 +759,6 @@ void compute(int time)
         resetArray<<<preciseNumBlocks, preciseNumThread>>>(xP, yP, massP, maxCells - 1);
 
         gpuErrchk(cudaMemset(lock, 0, sizeof(int)));
-        gpuErrchk(cudaMemset(up, 0, sizeof(double)));
-        gpuErrchk(cudaMemset(down, 0, sizeof(double)));
-        gpuErrchk(cudaMemset(left, 0, sizeof(double)));
-        gpuErrchk(cudaMemset(right, 0, sizeof(double)));
 
         cudaDeviceSynchronize();
     }
@@ -811,5 +812,6 @@ int main()
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     // stampo i risultati del calcolo
     printer();
+    printf("body %d",numberBody);
     printerFile();
 }
