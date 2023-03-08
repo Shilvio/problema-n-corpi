@@ -5,12 +5,12 @@
 __device__ int h=50;
 
 __global__ void fun(){
-
-    int point=atomicAdd(&h,-1);
-
-    printf("io occupo %d\n",point);
+    double a = -1.1111111111;
+    double b = -1.2222222222;
+    double max = fmaxf(a,b);
+    printf("\n il massimo è :%e ", max);
 }
 
 int main(){
-    fun<<<3,2>>>();
+    fun<<<1,1>>>();
 }

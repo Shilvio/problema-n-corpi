@@ -30,7 +30,7 @@ void printerFile()
 //massima lunghezza stringa
 #define MAX_LENGTH 1000 
 //massimo numero di iterazioni sulle righe
-#define MAX_ITERATIONS 100 
+#define MAX_ITERATIONS 10000
 //flag di verifica
 bool flag = true;
 //array per contenere le stringhe
@@ -64,9 +64,10 @@ int main(){
 
 
   //creazione indirizzi per apertura file 
-  path_composer(ref_path, st, exaustive);//selezione path per il file di riferimento (inseriteli a mano e non rompete i coglioni)
-  path_composer(com_path, cuda, exaustiveArrays);//selezione path per il file da verificare
+  path_composer(ref_path, st, barnes_hut);//selezione path per il file di riferimento (inseriteli a mano e non rompete i coglioni)
+  path_composer(com_path, cuda, barnes_hut);//selezione path per il file da verificare
 
+  printf("1)%s \n2)%s",ref_path,com_path);
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

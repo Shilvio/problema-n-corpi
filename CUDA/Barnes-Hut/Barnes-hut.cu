@@ -6,7 +6,7 @@
 #include <time.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 10;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
+int maxCells, numberBody, seed, maxTime = 20;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
 char fileInput[] = "../../Generate/particle.txt";  // file di input contenente le particelle iniziali
 double *x, *y, *m, *velX, *velY, *forceX, *forceY; // futuri puntatori agli array dei field delle particelle (posizioni: x,y,  masse, velocità: x,y,  forze: x,y)
 
@@ -38,6 +38,13 @@ __device__ int h = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // funzioni gpu
+
+__global__ void initialPosition(double *up, double *down, double *left, double *right, double x,double y){
+    *up=y;
+    *down=y;
+    *left=x;
+    *right=x;
+}
 
 // calcolo la bounding box delle particelle, applicando tecniche di riduzione gpu
 __global__ void boundingBox(double *xP, double *yP, int numBody, double *up, double *down, double *left, double *right, int *lock)
@@ -89,17 +96,20 @@ __global__ void boundingBox(double *xP, double *yP, int numBody, double *up, dou
     while (i != 0)
     {
         if (threadIdx.x < i)
-        {
-            // confronto i valori vari con quelli in shared e li sovrascrivo con i rispettivi minimi e massimi
-            leftCache[threadIdx.x] = fminf(leftCache[threadIdx.x], leftCache[threadIdx.x + i]);
-            rightCache[threadIdx.x] = fmaxf(rightCache[threadIdx.x], rightCache[threadIdx.x + i]);
-            upCache[threadIdx.x] = fmaxf(upCache[threadIdx.x], upCache[threadIdx.x + i]);
-            downCache[threadIdx.x] = fminf(downCache[threadIdx.x], downCache[threadIdx.x + i]);
+        {   
+            if(id + i<numBody){
+                                                                                                                    //printf("indicatore di stocazzo %i\n",threadIdx.x + i);
+                // confronto i valori vari con quelli in shared e li sovrascrivo con i rispettivi minimi e massimi
+                leftCache[threadIdx.x] = fminf(leftCache[threadIdx.x], leftCache[threadIdx.x + i]);
+                rightCache[threadIdx.x] = fmaxf(rightCache[threadIdx.x], rightCache[threadIdx.x + i]);
+                upCache[threadIdx.x] = fmaxf(upCache[threadIdx.x], upCache[threadIdx.x + i]);
+                downCache[threadIdx.x] = fminf(downCache[threadIdx.x], downCache[threadIdx.x + i]);
+            }
         }
         __syncthreads();
         i /= 2;
     }
-
+    
     // il thread 0, esegue la funzione di master e confronta il risultato con gli altri bloccchi
     if (threadIdx.x == 0)
     {
@@ -694,11 +704,17 @@ void compute(int time)
     gpuErrchk(cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
                                                                                                                 int *childH = (int *)malloc(sizeof(int) * maxCells);
     cudaDeviceSynchronize();
+    
     // eseguo funzioni cuda
     for (int i = 0; i < time; i++)
     {
+        _sleep(2000);
+        printf("%i\n",i);
         // invoco la funzione per settarre la variabile puntatore globale nel device
         setPointer<<<1, 1>>>(maxCells);
+        initialPosition<<<1,1>>>(up, down, left, right,x[0],y[0]);
+
+        cudaDeviceSynchronize();
         
         boundingBox<<<boundingNumBlocks, blockSize>>>(xP, yP, numberBody, up, down, left, right, lock);     //sizeBlock
 
@@ -750,7 +766,7 @@ void compute(int time)
     returnCuda(xP, yP, velXP, velYP, forceXP, forceYP);
 
     // libero memoria
-    free(childH);
+                                                                                                                        free(childH);
     cudaFree(child);
     cudaFree(xP);
     cudaFree(yP);
@@ -795,4 +811,5 @@ int main()
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     // stampo i risultati del calcolo
     printer();
+    printerFile();
 }

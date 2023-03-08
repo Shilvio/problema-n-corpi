@@ -84,7 +84,7 @@ void boundingBox(particle *p1)
     left -= 1;
     up += 1;
     down -= 1;
-                                                                                 //printf("\n\nboundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
+                                                                                //printf("\n\nboundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -475,6 +475,16 @@ void compute(particle *p1, int time)
     }
 }
 
+void printerFile(particle* p1)
+{
+    FILE *solution = fopen("solution.txt", "w");
+    for (int i = 0; i < numberBody; i++)
+    {
+        fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+    }
+    fclose(solution);
+}
+
 int main()
 {   
     clock_t start, end;
@@ -489,5 +499,6 @@ int main()
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     printerAlt(p1);       // stampo i risultati
+    printerFile(p1);
     return 0;
 }
