@@ -498,7 +498,7 @@ int main()
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
-    printerAlt(p1);       // stampo i risultati
+    //printerAlt(p1);       // stampo i risultati
     printerFile(p1);
     return 0;
 }

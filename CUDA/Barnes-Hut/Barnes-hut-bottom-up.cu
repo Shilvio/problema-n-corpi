@@ -5,16 +5,22 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 1;
+int maxCells, numberBody, seed, maxTime = 10;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
-double maxSize=20;
+int error_h=0;
 //double maxSize = 6.162025e+070;
 
 // costanti e variabili gpu
-__constant__ double G = 6.67384E-11; // costante gravitazione universale
-__constant__ double THETA = 0.5;     // thetha per il calcolo delle forze su particell
-__device__ int pPointer;
+// costanti e variabili gpu
+__device__ const double G = 6.67384E-11; // costante gravitazione universale
+__device__ const double THETA = 1;    // theta per il calcolo delle forze su particell
+__device__ const int stackSize = 24;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
+__device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
+__device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle
+__device__ const int deltaTime = 1;      // delta time
+__device__ int error=0;
+
 
 ///////////////////////////////////////////GPU ERRORCHECK///////////////////////////////////////////////////////////////
 #define gpuErrchk(ans)                        \
@@ -34,6 +40,221 @@ __device__ int h = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // funzioni gpu
+
+__global__ void calculateMovement(double *xP, double *yP, double *mP,double *forceX, double *forceY, double *velX, double *velY,int numBody){
+
+    int body = threadIdx.x + blockDim.x * blockIdx.x;
+
+    if(body>=numBody){
+        return;
+    };
+
+    xP[body] += deltaTime * velX[body];
+    yP[body] += deltaTime * velY[body];
+    velX[body] += deltaTime / mP[body] * forceX[body];
+    velY[body] += deltaTime / mP[body] * forceY[body];
+}
+
+__global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *left, double *right)
+{
+    int body = threadIdx.x + blockDim.x * blockIdx.x;
+
+    if(body>=numBody){
+        return;
+    };
+    
+    double size = (*right - *left);
+    double forceXb = forceX[body];
+    double forceYb = forceY[body];
+    double xPb = xP[body];
+    double yPb = yP[body];
+    double mPb = mP[body];
+
+    // utlizziamo due stack, uno per il calcolo del padre e uno per le profondità
+    __shared__ int stack[stackSize * blockSize];
+    __shared__ int depths[stackSize * blockSize];
+    //il puntatore parte a 0
+    int stackPoint = 0;
+
+    // ciclo per quelli che sono sicuro siano i suoi figli e aggiorno i rispettivi stack
+    for (int i = 0; i < 4; i++)
+    {
+        int cell = child[point - i];
+        if (cell != -1)
+        {   
+            stack[blockDim.x * stackPoint + threadIdx.x] = cell;
+            depths[blockDim.x * stackPoint + threadIdx.x] = 1;
+            stackPoint++;
+        }
+    }
+
+    // ciclo finchè ho filgi da analizzare, carico il figlio e aggiorno lo stack pointer
+    while (stackPoint > 0)
+    {
+        stackPoint--;
+        int cell = stack[blockDim.x * stackPoint + threadIdx.x];
+        int depth = depths[blockDim.x * stackPoint + threadIdx.x];
+        double dist = sqrtf(pow(xPb - xP[cell], 2) + pow(yPb - yP[cell], 2));
+
+        // controllo di non star confrontando la particella con se stessa
+        if (dist == 0)
+        {
+            continue;
+        }
+        // se sto guardando una particella calcolo le forze
+        if (cell < numBody)
+        {
+                                                                                    // printf("size: %e\n",(size/pow(2,depth)));
+            double xDiff = xPb - xP[cell];                             // calcolo la distanza tra la particella 1 e la 2
+            double yDiff = yPb - yP[cell];                             // (il centro di massa del nodo = particella)
+            double cubeDist = dist * dist * dist;                           // elevo al cubo la distanza e applico la formula di newton
+            forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
+            forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
+                                                                                    //printf("dist:%e mass:%e xPcell: %e cell: %d\n",mPb,mP[cell],yP[cell],cell);
+                                                                                    // printf("body %d, cell %d\n",body,cell);
+        }
+        else
+        {
+            // se va oltre il THETA calcolo approssimo, usiamo solo la x per il calcolo del tetha,  \
+                (si potrebbe usare un abs max, per vedere chi è il massimo tra x e y) 
+            if (((size / pow(2, depth)) / dist < THETA))
+            {   
+                double xDiff = xPb - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
+                double yDiff = yPb - yP[cell];                                 // (il centro di massa del nodo = particella)
+                double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
+                forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
+                forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
+                                                                                    //printf("ciao\n");
+                                                                                    // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
+            }
+            else
+            {
+                // aggiungo i figli allo stack 
+                for (int i = 0; i < 4; i++)
+                {
+                    int newCell = child[cell - i];
+                    if (newCell != -1)
+                    {
+                        if(blockDim.x * stackPoint + threadIdx.x>=stackSize * blockSize){
+                                                                                                                //printf("Tua sorella\n");
+                            error=1;
+                            return;
+                        }
+                        stack[blockDim.x * stackPoint + threadIdx.x] = newCell;
+                        depths[blockDim.x * stackPoint + threadIdx.x] = depth + 1;
+                        stackPoint++;
+                    }
+                }
+            }
+        }
+    }
+
+                                                                                //printf("body %d, X %e, Y %e\n",body,forceX[body],forceY[body]);
+    // aggiorno i valori delle particelle relative al delta-time
+    forceX[body] = forceXb;
+    forceY[body] = forceYb;
+}
+// setto la x e y iniziali
+__global__ void initialPosition(double *up, double *down, double *left, double *right, double x,double y){
+    
+    *up=y;
+    *down=y;
+    *left=x;
+    *right=x;
+}
+// calcolo la bounding box delle particelle, applicando tecniche di riduzione gpu
+__global__ void boundingBox(double *xP, double *yP, int numBody, double *up, double *down, double *left, double *right, int *lock)
+{
+
+    // id del body gestito da i vari blocchi
+    int id = threadIdx.x + blockDim.x * blockIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    // controllo se ho una particella da controllare
+    if (id >= numBody)
+    {
+        return;
+    }
+
+    // creiamo due tipi variabili, una locale e un array (shared) per ogniuno dei 4 valori
+    float xMin = xP[id];
+    float xMax = xP[id];
+    float yMin = yP[id];
+    float yMax = yP[id];
+
+    __shared__ float leftCache[blockSize];
+    __shared__ float rightCache[blockSize];
+    __shared__ float upCache[blockSize];
+    __shared__ float downCache[blockSize];
+
+    int offset = stride;
+
+    // finche mi trovo tra le particelle, cerco i valori minimi e massimi
+    while (id + offset < numBody)
+    {
+        xMin = fminf(xMin, xP[id + offset]);
+        xMax = fmaxf(xMax, xP[id + offset]);
+        yMin = fminf(yMin, yP[id + offset]);
+        yMax = fmaxf(yMax, yP[id + offset]);
+        offset += stride;
+    }
+
+    // salvo i valori nella memoria shared relativa al thread
+    leftCache[threadIdx.x] = xMin;
+    rightCache[threadIdx.x] = xMax;
+    upCache[threadIdx.x] = yMax;
+    downCache[threadIdx.x] = yMin;
+
+    __syncthreads();
+
+    // applico la riduzione dimezzando ogni volta i thread, ottimizzando l'utilizzo dei warp
+    int i = blockDim.x / 2;
+    while (i != 0)
+    {
+        if (threadIdx.x < i)
+        {   
+            if(id + i<numBody){
+                                                                                                                    //printf("indicatore di stocazzo %i\n",threadIdx.x + i);
+                // confronto i valori vari con quelli in shared e li sovrascrivo con i rispettivi minimi e massimi
+                leftCache[threadIdx.x] = fminf(leftCache[threadIdx.x], leftCache[threadIdx.x + i]);
+                rightCache[threadIdx.x] = fmaxf(rightCache[threadIdx.x], rightCache[threadIdx.x + i]);
+                upCache[threadIdx.x] = fmaxf(upCache[threadIdx.x], upCache[threadIdx.x + i]);
+                downCache[threadIdx.x] = fminf(downCache[threadIdx.x], downCache[threadIdx.x + i]);
+            }
+        }
+        __syncthreads();
+        i /= 2;
+    }
+    
+    // il thread 0, esegue la funzione di master e confronta il risultato con gli altri bloccchi
+    if (threadIdx.x == 0)
+    {
+        // utiliziamo un mutex per accedere alla memoria globale evitando concorrenza
+        while (atomicCAS(lock, 0, 1) != 0);
+
+        *left = fminf(*left, leftCache[0]);
+        *right = fmaxf(*right, rightCache[0]);
+        *up = fmaxf(*up, upCache[0]);
+        *down = fminf(*down, downCache[0]);
+
+        atomicExch(lock, 0);
+    }
+}
+
+// espandiamo la bounding box, per allinearci con i calcoli svolti nell'implementazione single thread
+__global__ void boundingBoxExpander(double *up, double *down, double *left, double *right)
+{
+    *right = *right + 1;
+    *left = *left - 1;
+    *up = *up + 1;
+    *down = *down - 1;
+
+   /**right=20;
+   *left=-20;
+   *up =20;
+   *down =-20;*/
+                                                                        printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
+}
 
 //funzione di calcolo dei centri di massa
 __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,double numBody){
@@ -64,7 +285,7 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
         xP[cell]=mcX/mass;
         yP[cell]=mcY/mass;
         mP[cell]=mass;
-                                                                                printf("cell %d, x %e, y %e, mass %e\n",cell,xP[cell],yP[cell],mass);
+                                                                                //printf("cell %d, x %e, y %e, mass %e\n",cell,xP[cell],yP[cell],mass);
         cell=child[cell-4];
         if(cell==-1){
             return;
@@ -73,8 +294,10 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
 }
 
 // funzione per la creazione dell'albero
-__global__ void createTree(double* x, double* y,double* mass, double up, double down, double left, double right, int *child,int cell,int numBody)
+__global__ void createTree(double* x, double* y,double* mass, double* upA, double* downA, double* leftA, double* rightA, int *child,int cell,int numBody)
 {  
+    // DA SISTEMARE DIOCAN
+    double up=*upA, down = *downA, left=*leftA, right =*rightA;
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     // uccido il thread che non deve inserire particelle
     if(body>numBody){
@@ -151,9 +374,10 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                     while(cell>=0 && cell<numBody){
 
                         //scalo al prossimo indice con cella libera
-                        int newCell = atomicAdd(&pPointer,-5);
-                        if(newCell-4<numBody){
+                        int newCell = atomicAdd(&pPointer,-6);
+                        if(newCell-6<numBody){
                             printf("\nNon ho spazio disponibile\n");
+                            error=1;
                             return;
                         }
                         //assegno ai figli il valore -1, ovvero puntatore a null
@@ -162,6 +386,7 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
                         child[newCell-2]=-1;
                         child[newCell-3]=-1;
                         child[newCell-4]=father;
+                        child[newCell-5]=child[father-5]+1;
                         
                         //inserisco la vecchia particella
                         childPath=0;
@@ -237,7 +462,7 @@ __global__ void createTree(double* x, double* y,double* mass, double up, double 
 // funzione kernel per inizializzare la variabile globale puntatore
 __global__ void setPointer(int num)
 {
-    pPointer = num-6;
+    pPointer = num-7;
 }
 
 // funzioni host
@@ -292,6 +517,28 @@ FILE *initial()
                                                                                                         child[pPointer-4]=0;
                                                                                                     }
 
+__global__ void checkError(int* er){
+    *er=error;
+}
+
+__global__ void resetArray(double *xP, double *yP, double *massP, int point)
+{
+
+    int id = threadIdx.x + blockDim.x * blockIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    point -= 4;
+
+    for (int i = point - (4 * id); i > pPointer; i -= (4 * stride))
+    {
+
+                                                            // printf("\n(%d) ",i);
+        xP[i] = 0;
+        yP[i] = 0;
+        massP[i] = 0;
+                                                            // printf("(%d)mass: %e x:%e y:%e\n",i,mP[i],xP[i],yP[i]);
+    }
+}
+
 //funzione grafica per stampare l'albero creato da crateTree()
 void printerTree(int* array, int state, int max,int point){
     if(state==0){
@@ -300,7 +547,7 @@ void printerTree(int* array, int state, int max,int point){
         for(int i=point;i>=0;i--){
             printf("%d , ",array[i]);
             counter++;
-            if(counter%5==0){
+            if(counter%6==0){
                 if(array[i-5]==0){
                     break;
                 }
@@ -313,6 +560,8 @@ void printerTree(int* array, int state, int max,int point){
             counter2--;
             printf("(%d) %d , ",counter2,array[i]);
         }
+        printf("\n");
+        return;
         printf("\n%d count %d",point,counter);
         printf("\n\n");
         printf("0\n");
@@ -363,13 +612,30 @@ void printerTree(int* array, int state, int max,int point){
 
 }
 
+// riporto i valori da kernel a host
+void returnCuda(double *xP, double *yP, double *velXP, double *velYP, double *forceXP, double *forceYP)
+{
+
+    gpuErrchk(cudaMemcpy(x, xP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(y, yP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(velX, velXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(velY, velYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(forceX, forceXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(forceY, forceYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+}
+
 //funzione di esecuzione dei vari kernell
 void compute(int time)
 {
+    int *er;
+    cudaMalloc((void**)&er,sizeof(int));
+
     double *xP, *yP, *massP;
     
-    double up=maxSize, down=-maxSize, left=-maxSize, right=maxSize,*massR;
-    int *child;
+    double *up, *down, *left, *right;
+    int *child,*lock;
+
+    double *forceXP, *forceYP, *velXP, *velYP;
     
 
     //alloco la memoria dei vari parametrio sul device
@@ -377,29 +643,59 @@ void compute(int time)
     gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * maxCells * 4));   
     gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));   
     gpuErrchk(cudaMalloc((void **)&massP, sizeof(double) * maxCells * 4));
+    gpuErrchk(cudaMalloc((void **)&forceXP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&forceYP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&velXP, sizeof(double) * numberBody));
+    gpuErrchk(cudaMalloc((void **)&velYP, sizeof(double) * numberBody));
+    
+    gpuErrchk(cudaMalloc((void **)&up, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&down, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&left, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&right, sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&lock, sizeof(int)));
     // copio array delle posizioni x, y e masse delle particelle
     cudaMemcpy(xP, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);   
     cudaMemcpy(yP, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);  
     cudaMemcpy(massP, m, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
+    gpuErrchk(cudaMemcpy(velXP, velX, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
                                                                                                 int* childH=(int*) malloc( sizeof(int) * maxCells * 4);
     
     gpuErrchk(cudaDeviceSynchronize());
     // eseguo funzioni cuda
     for (int i = 0; i < time; i++)
     {
+        printf("%d\n",i);
         // invoco la funzione per settarre la variabile puntatore globale nel device
         setPointer<<<1,1>>>(maxCells);
+
+        initialPosition<<<1,1>>>(up, down, left, right,x[0],y[0]);
+
+        cudaDeviceSynchronize();
+        
+        boundingBox<<<1, blockSize>>>(xP, yP, numberBody, up, down, left, right, lock);     //sizeBlock
+
+        cudaDeviceSynchronize();
+
+        boundingBoxExpander<<<1, 1>>>(up, down, left, right);
         // setto array dei figli a -1 (null)
         cudaMemset(&child[ maxCells - 1], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 2], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 3], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 4], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 5], -1, sizeof(int));
+        cudaMemset(&child[ maxCells - 6], 0, sizeof(int));
 
         // genero l'albero
-        createTree<<<1, 4>>>(xP, yP, massP, up, down, left, right, child, maxCells-1, numberBody);
+        createTree<<<1, 6>>>(xP, yP, massP, up, down, left, right, child, maxCells-1, numberBody);
         cudaDeviceSynchronize();
         // sincronizzo i kernel a fine esecuzione
+
+        checkError<<<1,1>>>(er);
+        gpuErrchk(cudaMemcpy(&error_h, er, sizeof(int), cudaMemcpyDeviceToHost));
+        if(error_h!=0){
+            break;
+        }
                                                                                                 set0<<<1,1>>>(child);
                                                                                                 cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
@@ -407,20 +703,23 @@ void compute(int time)
          
         
         // calcolo centri di massa
-        calculateCenterMass<<<4,1>>>(child,xP,yP,massP,numberBody);
+        calculateCenterMass<<<6,1>>>(child,xP,yP,massP,numberBody);
+        cudaDeviceSynchronize();
+
+        calculateForce<<<6, 1>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, left, right);    //precisa sizeBlock
         cudaDeviceSynchronize();
         
         // calcolo spostamento particelle
-        // calculateMove<<<?>>>(?);
+        calculateMovement<<<6,1>>>(xP, yP, massP,forceXP, forceYP, velXP, velYP, numberBody); //precisa
+        cudaDeviceSynchronize();
 
-        //gpuErrchk(cudaMalloc((void **)&massR, sizeof(double) * maxCells * 4));
-        //cudaMemcpy(massR, massP, sizeof(double) * numberBody, cudaMemcpyDeviceToDevice);
-        // cudaDeviceSynchronize();
+        resetArray<<<6, 1>>>(xP, yP, massP, maxCells - 1);
+        gpuErrchk(cudaMemset(lock, 0, sizeof(int)));
 
-        cudaFree(massP);
-        massP=massR;
+        cudaDeviceSynchronize();
         
     }
+    returnCuda(xP, yP, velXP, velYP, forceXP, forceYP);
     // libero memoria
                                                                                                 free(childH);
     cudaFree(child);
@@ -458,5 +757,5 @@ int main()
     // avvio compute
     compute(maxTime);
     // stampo i risultati del calcolo
-    //printer();
+    printer();
 }

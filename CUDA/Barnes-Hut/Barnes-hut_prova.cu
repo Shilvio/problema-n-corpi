@@ -160,6 +160,9 @@ __global__ void calculateMovement(double *xP, double *yP, double *mP,double *for
 __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *left, double *right)
 {
     int body = threadIdx.x + blockDim.x * blockIdx.x;
+    int* stackLow;
+    int* depthsLow;
+    int sizeLow=0;
 
     if(body>=numBody){
         return;
@@ -189,10 +192,25 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
             stackPoint++;
         }
     }
-
     // ciclo finchè ho filgi da analizzare, carico il figlio e aggiorno lo stack pointer
-    while (stackPoint > 0)
+    while (stackPoint > 0 || sizeLow > 0)
     {
+                                                                                                                //printf("point %d size %d\n",stackLow,sizeLow);
+        if(stackPoint==0){
+            //copia tutto
+            for(;stackPoint<stackSize;stackPoint++){
+                                                                                                                //printf("point2 %d\n",stackPoint+1);
+                stack[blockDim.x * stackPoint + threadIdx.x]=5;
+            }
+            sizeLow-=stackSize;
+        }
+                                                                                                                //printf("point %d\n",stackPoint);
+                                                                                                                /*if(blockDim.x * stackPoint + threadIdx.x >= stackSize * blockSize){
+                                                                                                                    printf("cazzo4 %d point %d tot %d max %d\n",body,stackPoint,blockDim.x * stackPoint + threadIdx.x,stackSize * blockSize);
+                                                                                                                }
+                                                                                                                if(stackPoint<0){
+                                                                                                                    printf("cazzo6 %d point %d tot %d max %d\n",body,stackPoint,blockDim.x * stackPoint + threadIdx.x,stackSize * blockSize);
+                                                                                                                }*/
         stackPoint--;
         int cell = stack[blockDim.x * stackPoint + threadIdx.x];
         int depth = depths[blockDim.x * stackPoint + threadIdx.x];
@@ -237,11 +255,43 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                     int newCell = child[cell - i];
                     if (newCell != -1)
                     {
-                        if(blockDim.x * stackPoint + threadIdx.x>=stackSize * blockSize){
+                        if(blockDim.x * stackPoint + threadIdx.x >= stackSize * blockSize){
+                                                                                                                //printf("point %d max %d cell %d prof %d body %d\n",blockDim.x * stackPoint + threadIdx.x,stackSize * blockSize,newCell,depth,body);
+
                                                                                                                 //printf("Tua sorella\n");
-                            error=1;
-                            return;
+                            int temp[1];
+                            
+                            cudaMalloc((void**)&temp,sizeof(int)*(sizeLow+stackSize));
+                            //cudaMemcpy(temp,stackLow,sizeof(int)*sizeLow,cudaMemcpyDeviceToDevice);
+                            stackLow=temp;
+
+                            for(int i=0;i<stackPoint;i++){
+                                //printf("%d %d\n",i+sizeLow,sizeLow+stackSize);
+                                stackLow[i+sizeLow]=stack[blockDim.x * i + threadIdx.x];
+                            }
+
+                            int temp2[1];
+
+                            cudaMalloc((void**)&temp2,sizeof(int)*(sizeLow+stackSize));
+                            //cudaMemcpy(temp,depthsLow,sizeof(int)*(sizeLow),cudaMemcpyDeviceToDevice);
+                            depthsLow=temp2;
+
+                            for(int i=0;i<stackPoint;i++){
+                                depthsLow[i+sizeLow]=depths[blockDim.x * i + threadIdx.x];
+                            }
+                            sizeLow+=stackSize;
+                            stackPoint=1;
+                            //aggiungi l'ultimo elemento
+                                                                                                                    //printf("2-point %d max %d cell %d prof %d body %d\n",blockDim.x * stackPoint + threadIdx.x,stackSize * blockSize,newCell,depth,body);
+                                                                                                                    //printf("body %d\n",body);
                         }
+                                                                                                                    /*if(blockDim.x * stackPoint + threadIdx.x >= stackSize * blockSize){
+                                                                                                                        printf("cazzo\n");
+                                                                                                                    }
+                                                                                                                    if(stackPoint < 0){
+                                                                                                                        printf("cazzo2\n");
+                                                                                                                    }*/
+                        //printf("new %d\n",newCell);
                         stack[blockDim.x * stackPoint + threadIdx.x] = newCell;
                         depths[blockDim.x * stackPoint + threadIdx.x] = depth + 1;
                         stackPoint++;
@@ -716,6 +766,7 @@ void compute(int time)
     gpuErrchk(cudaMemcpy(velXP, velX, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
                                                                                                                 int *childH = (int *)malloc(sizeof(int) * maxCells);
+    cudaDeviceSynchronize();
     
     // eseguo funzioni cuda
     for (int i = 0; i < time; i++)
@@ -760,11 +811,9 @@ void compute(int time)
 
         calculateCenterMass<<<preciseNumBlocks, preciseNumThread>>>(child, xP, yP, massP, maxCells - 1); 
         cudaDeviceSynchronize();
-
         // calcolo spostamento particelle
         calculateForce<<<preciseNumBlockSize, blockSize>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, left, right);    //precisa sizeBlock
         cudaDeviceSynchronize();
-
         checkError<<<1,1>>>(er);
         gpuErrchk(cudaMemcpy(&error_h, er, sizeof(int), cudaMemcpyDeviceToHost));
         if(error_h!=0){
@@ -832,7 +881,7 @@ int main()
         printf("\nNon completabile\n");
         return 0;
     }
-    printer();
+    //printer();
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     printf("body %d",numberBody);
     printerFile();
