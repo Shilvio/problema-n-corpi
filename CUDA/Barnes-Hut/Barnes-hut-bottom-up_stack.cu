@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 2;
+int maxCells, numberBody, seed, maxTime = 10;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 int error_h=0;
@@ -14,7 +14,7 @@ cudaDeviceProp pr;
 
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
-__device__ const double THETA = 0;    // theta per il calcolo delle forze su particell
+__device__ const double THETA = 1;    // theta per il calcolo delle forze su particell
 __device__ const int stackSize = 24;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
 __device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
 __device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle
@@ -70,99 +70,37 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
     double yPb = yP[body];
     double mPb = mP[body];
 
-    
-    int cell=point;
-    int pre=cell;
-    for (int i = 1; i < 4; i++)
+    // utlizziamo due stack, uno per il calcolo del padre e uno per le profondità
+    __shared__ int stack[stackSize * blockSize];
+    __shared__ int depths[stackSize * blockSize];
+    //il puntatore parte a 0
+    int stackPoint = 0;
+
+    // ciclo per quelli che sono sicuro siano i suoi figli e aggiorno i rispettivi stack
+    for (int i = 0; i < 4; i++)
     {
-        if(cell==-1){
-            cell=child[pre-i];
-        }else{
-            break;
+        int cell = child[point - i];
+        if (cell != -1)
+        {   
+            stack[blockDim.x * stackPoint + threadIdx.x] = cell;
+            depths[blockDim.x * stackPoint + threadIdx.x] = 1;
+            stackPoint++;
         }
     }
 
-    pre=cell;
-    
-       
-
     // ciclo finchè ho filgi da analizzare, carico il figlio e aggiorno lo stack pointer
-    while (true)
-    {        
-                                                                                                                                        //printf("cell: %d pre:%d\n",cell,pre);
-        if (cell==-1)
-        {
-            break;
-        }
-        if (pre==cell)
-        {
-                                                                                                                                        //printf("analise: %d\n",cell);
-            cell=child[pre];
-            
-            for (int i = 1; i < 4; i++)
-            {
-                                                                                                                                        //printf("add: %d\n",cell);
-                if(cell==-1){
-                    cell=child[pre-i];
-                }else{
-                    break;
-                }
-            }
-
-                                                                                                                                        //printf("add2: %d\n",cell);
-
-            pre=cell;
-
-            if(cell==-1){
-                break;
-            }
-
-        }else{
-
-            //printf("%d , %d\n",cell, pre);
-            int i;
-            for (i = 0; i < 4; i++)
-            {
-                //printf("cella: %d\n",child[cell-i]);
-                if (child[cell-i]==pre)
-                {
-                    //printf("cella: %d",cell);
-                    pre=cell;
-                    break;
-                }
-            }
-            
-            i++;
-            cell=child[pre-i];
-            i++;
-            
-            for(;i<4;i++){
-                if(cell==-1){
-                    cell=child[pre-i];
-                }else{
-                    break;
-                }
-            }
-
-
-            if(cell==-1){
-                cell=child[pre-4];
-                continue;
-            }
-
-            pre=cell;
-        }
-        
+    while (stackPoint > 0)
+    {
+        stackPoint--;
+        int cell = stack[blockDim.x * stackPoint + threadIdx.x];
+        int depth = depths[blockDim.x * stackPoint + threadIdx.x];
         double dist = sqrtf(pow(xPb - xP[cell], 2) + pow(yPb - yP[cell], 2));
 
         // controllo di non star confrontando la particella con se stessa
         if (dist == 0)
         {
-            //printf("caza %d\n",child[pre]);
-            cell=child[pre];
             continue;
         }
-
         // se sto guardando una particella calcolo le forze
         if (cell < numBody)
         {
@@ -172,26 +110,42 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
             double cubeDist = dist * dist * dist;                           // elevo al cubo la distanza e applico la formula di newton
             forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
             forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
-
-            cell=child[pre];
-
-            continue;
                                                                                     //printf("dist:%e mass:%e xPcell: %e cell: %d\n",mPb,mP[cell],yP[cell],cell);
                                                                                     // printf("body %d, cell %d\n",body,cell);
         }
+        else
+        {
             // se va oltre il THETA calcolo approssimo, usiamo solo la x per il calcolo del tetha,  \
                 (si potrebbe usare un abs max, per vedere chi è il massimo tra x e y) 
-        if (((size / pow(2, child[cell-5])) / dist < THETA))
-        {   
-            double xDiff = xPb - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
-            double yDiff = yPb - yP[cell];                                 // (il centro di massa del nodo = particella)
-            double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
-            forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
-            forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
-
-            cell=child[pre-4];
-                                                                                //printf("teta %d, %d\n",cell,pre);
-                                                                                // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
+            if (((size / pow(2, depth)) / dist < THETA))
+            {   
+                double xDiff = xPb - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
+                double yDiff = yPb - yP[cell];                                 // (il centro di massa del nodo = particella)
+                double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
+                forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
+                forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
+                                                                                    //printf("ciao\n");
+                                                                                    // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
+            }
+            else
+            {
+                // aggiungo i figli allo stack 
+                for (int i = 0; i < 4; i++)
+                {
+                    int newCell = child[cell - i];
+                    if (newCell != -1)
+                    {
+                        if(blockDim.x * stackPoint + threadIdx.x>=stackSize * blockSize){
+                                                                                                                //printf("Tua sorella\n");
+                            error=1;
+                            return;
+                        }
+                        stack[blockDim.x * stackPoint + threadIdx.x] = newCell;
+                        depths[blockDim.x * stackPoint + threadIdx.x] = depth + 1;
+                        stackPoint++;
+                    }
+                }
+            }
         }
     }
 
