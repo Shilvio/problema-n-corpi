@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 2;
+int maxCells, numberBody, seed, maxTime = 10;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 int error_h=0;
@@ -131,6 +131,11 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                     break;
                 }
             }
+
+            if(i==3){
+                cell=child[pre-4];
+                continue;
+            }
             
             i++;
             cell=child[pre-i];
@@ -144,6 +149,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                 }
             }
 
+                                                                                                                                    //printf("cell: %d pre:%d\n",cell,pre);
 
             if(cell==-1){
                 cell=child[pre-4];
