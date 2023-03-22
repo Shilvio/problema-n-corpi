@@ -5,12 +5,10 @@
 #include <string.h>
 #include <time.h>
 
-int count=0;
-
-int numberBody, seed, maxTime =10;
+int numberBody, seed, maxTime =20;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
-double const THETA = 1;     // thetha per il calcolo delle forze su particell 0.75
+double const THETA = 2;     // thetha per il calcolo delle forze su particell 0.75
 double maxSize;
 double up,down,left,right;
 int deltaTime=1;
@@ -73,6 +71,7 @@ void boundingBox(particle *p1)
     down = p1[0].y;
     left = p1[0].x;
     right = p1[0].x;
+
     for (int i = 0; i < numberBody; i++)
     {
         right = max(p1[i].x, right);
@@ -80,11 +79,13 @@ void boundingBox(particle *p1)
         up = max(p1[i].y, up);
         down = min(p1[i].y, down);
     }
+
+    
     right += 1;
     left -= 1;
     up += 1;
     down -= 1;
-                                                                                //printf("\n\nboundingbox: up: %e, down: %e,left: %e,right: %e \n\n",up,down,left,right);
+                                                                                    //printf("\nBounding box: up: %e,down: %e,left: %e,right: %e\n",up,down,left,right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -342,6 +343,8 @@ massCenter *centerMass(quadTree *c)
     mc->x = (ne->mass * ne->x + nw->mass * nw->x + se->mass * se->x + sw->mass * sw->x) / mc->mass;
     mc->y = (ne->mass * ne->y + nw->mass * nw->y + se->mass * se->y + sw->mass * sw->y) / mc->mass;
 
+                                                                                                    //printf("cell x %e, y %e, mass %e\n",mc->x,mc->y,mc->mass);
+
     c->mc = mc;
     // printf("id=%s\n",c->id);
     // printf("mod id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
@@ -377,7 +380,7 @@ void threeForce(quadTree *t, particle *p)
         }
         return;
     }
-                                                                                
+                                                                                            //printf("%e\n", dist );                                     
     if ((t->right-t->left) / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
     {
         double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
@@ -441,8 +444,12 @@ void initialQuad(quadTree *c)
 void compute(particle *p1, int time)
 {
 
+    
     for (int j = 0; j < time; j++)
     {
+        
+        printf("%d\n",j);
+        
         boundingBox(p1);
         quadTree *c = (quadTree *)malloc(sizeof(quadTree));
 
@@ -461,7 +468,7 @@ void compute(particle *p1, int time)
         for (int i = 0; i < numberBody; i++)
         {
             // printf("\n");
-            count++;
+                                                                                                               
             threeForce(c, &p1[i]);
             
             //printf("body %d, X %e, Y %e\n",i,p1[i].forceX,p1[i].forceY);
@@ -469,7 +476,7 @@ void compute(particle *p1, int time)
             calculatePosition(&p1[i], deltaTime);
         }
         // printf("\ncalcolato lo spostamento\n\n");
-        // printerAlt(p1);
+        //printerAlt(p1);
         destroyTree(c);
         // printer(c,0);
     }
@@ -498,7 +505,7 @@ int main()
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
-    //printerAlt(p1);       // stampo i risultati
+    printerAlt(p1);       // stampo i risultati
     printerFile(p1);
     return 0;
 }

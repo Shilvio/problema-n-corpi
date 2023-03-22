@@ -6,7 +6,7 @@
 //variabili per il calcolo del tempo di esecuzione
 
 
-int numberBody, seed, maxTime = 1;
+int numberBody, seed, maxTime = 5;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11;
 //double const G = 1;
@@ -105,7 +105,7 @@ void getInput(FILE *file, particle *p1)
         // imposto le forze iniziali a zero
         p1[i].forceX = 0;
         p1[i].forceY = 0;
-        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     // chiudo il file
     fclose(file);

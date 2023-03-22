@@ -4,11 +4,11 @@
 #include <stdbool.h>
 #include <string.h>
 
-int numberBody, seed, maxTime = 1;
+int numberBody, seed, maxTime = 5;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 // double const G=1;
-double const THETA = 0.5; // thetha per il calcolo delle forze su particell
+double const THETA = 0; // thetha per il calcolo delle forze su particell
 //double maxSize = 6.162025e+070;
 double maxSize = 100;
 // int count = 0;
@@ -248,7 +248,7 @@ void getInput(FILE *file, particle *p1)
         fscanf(file, "%lf%lf%lf%lf%lf", &p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY); // prendo i dati dal file
         p1[i].forceX = 0;                                                                           // imposto le forze iniziali a zero
         p1[i].forceY = 0;
-        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(file); // chiudo il file
 }
