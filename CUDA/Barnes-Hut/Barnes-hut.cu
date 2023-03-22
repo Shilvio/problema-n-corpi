@@ -6,7 +6,7 @@
 #include <time.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 10;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
+int maxCells, numberBody, seed, maxTime = 5;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
 char fileInput[] = "../../Generate/particle.txt";  // file di input contenente le particelle iniziali
 double *x, *y, *m, *velX, *velY, *forceX, *forceY; // futuri puntatori agli array dei field delle particelle (posizioni: x,y,  masse, velocità: x,y,  forze: x,y)
 int error_h=0;
@@ -732,7 +732,6 @@ void compute(int time)
         cudaDeviceSynchronize();
 
         boundingBoxExpander<<<1, 1>>>(up, down, left, right);
-                                                                                                                printf("stronzi\n");
         // setto array dei figli a -1 (null)
         gpuErrchk(cudaMemset(&child[maxCells - 1], -1, sizeof(int)));
         gpuErrchk(cudaMemset(&child[maxCells - 2], -1, sizeof(int)));
@@ -744,7 +743,6 @@ void compute(int time)
         createTree<<<preciseNumBlocks, preciseNumThread>>>(xP, yP, massP, up, down, left, right, child, maxCells - 1, numberBody); //precisa
         cudaDeviceSynchronize();
         // sincronizzo i kernel a fine esecuzione
-                                                                                                                printf("stronzi\n");
         checkError<<<1,1>>>(er);
         gpuErrchk(cudaMemcpy(&error_h, er, sizeof(int), cudaMemcpyDeviceToHost));
         if(error_h!=0){
@@ -753,7 +751,7 @@ void compute(int time)
                                                                                                                     //set0<<<1, 1>>>(child);
                                                                                                                     cudaMemcpy(childH, child, sizeof(int) * maxCells, cudaMemcpyDeviceToHost);
                                                                                                                     // ritorno l'albero a l'host per la stampa e lo stampo
-                                                                                                                    printerTree(childH, 0, numberBody, maxCells - 1);
+                                                                                                                    //printerTree(childH, 0, numberBody, maxCells - 1);
                                                                                                                     //printf("next\n\n");
 
         // calcolo centri di massa

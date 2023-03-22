@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 10;
+int maxCells, numberBody, seed, maxTime = 20;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 int error_h=0;
@@ -14,7 +14,7 @@ cudaDeviceProp pr;
 
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
-__device__ const double THETA = 0;    // theta per il calcolo delle forze su particell
+__device__ const double THETA = 2;    // theta per il calcolo delle forze su particell
 __device__ const int stackSize = 24;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
 __device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
 __device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle
@@ -74,6 +74,21 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
 
     int cell=point;
     int pre=cell;      
+
+    double dist = sqrtf(pow(xPb - xP[cell], 2) + pow(yPb - yP[cell], 2));
+                                                                                            //printf("%e\n",dist);
+    if (((size / pow(2, depth)) / dist < THETA))
+    {   
+        double xDiff = xPb - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
+        double yDiff = yPb - yP[cell];                                 // (il centro di massa del nodo = particella)
+        double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
+        forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
+        forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
+
+        forceX[body] = forceXb;
+        forceY[body] = forceYb;
+        return;
+    }
 
     // ciclo finchè ho filgi da analizzare, carico il figlio e aggiorno lo stack pointer
     while (true)
@@ -185,6 +200,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                                                                                                         /*if(depth!=child[cell-5]){
                                                                                                             printf("sbagliato %d, %d, %d\n",depth,child[cell-5],cell);
                                                                                                         }*/
+                                                                                                        //printf("%e, %e\n",xPb,xP[cell]);
         if (((size / pow(2, depth)) / dist < THETA))
         {   
             double xDiff = xPb - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
@@ -196,7 +212,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
             cell=child[pre-4];
             depth--;
                                                                                 //printf("teta %d, %d\n",cell,pre);
-                                                                                // printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
+                                                                                //printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
         }
     }
 
@@ -304,7 +320,7 @@ __global__ void boundingBoxExpander(double *up, double *down, double *left, doub
    *left=-20;
    *up =20;
    *down =-20;*/
-                                                                        //printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
+                                                                        //printf("\nBounding box: up: %e,down: %e,left: %e,right: %e\n",*up,*down,*left,*right);
 }
 
 //funzione di calcolo dei centri di massa
@@ -594,7 +610,7 @@ void printerTree(int* array, int state, int max,int point){
     if(state==0){
         int counter=0;
         printf("(%d) ",point);
-        for(int i=point;i>=44914;i--){
+        for(int i=point;i>=0;i--){
             printf("%d , ",array[i]);
             counter++;
             if(counter%5==0){
@@ -672,6 +688,18 @@ void returnCuda(double *xP, double *yP, double *velXP, double *velYP, double *fo
     gpuErrchk(cudaMemcpy(velY, velYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
     gpuErrchk(cudaMemcpy(forceX, forceXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
     gpuErrchk(cudaMemcpy(forceY, forceYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
+}
+
+// stampa le particelle
+void printer()
+{
+    printf("\n");
+    for (int i = 0; i < numberBody; i++)
+    {
+        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
+    }
+
+    printf("\n");
 }
 
 //funzione di esecuzione dei vari kernell
@@ -807,17 +835,6 @@ void compute(int time)
     //printf("memoria liberata sul device \n");
 }
 
-// stampa le particelle
-void printer()
-{
-    printf("\n");
-    for (int i = 0; i < numberBody; i++)
-    {
-        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
-    }
-
-    printf("\n");
-}
 // stampa i risultati su solution.txt
 void printerFile(){
     FILE* solution=fopen("solution.txt","w");
