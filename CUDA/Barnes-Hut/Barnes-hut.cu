@@ -816,7 +816,8 @@ void printerFile()
 }
 
 int main()
-{   clock_t start, end;
+{   
+    clock_t start, end;
     double cpu_time_used;  
     // verifico le stat della gpu e la sua presenza
     statGPU();

@@ -182,10 +182,10 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
             // se va oltre il THETA calcolo approssimo, usiamo solo la x per il calcolo del tetha,  \
                 (si potrebbe usare un abs max, per vedere chi è il massimo tra x e y) 
 
-                                                                                                        if(depth!=child[cell-5]){
+                                                                                                        /*if(depth!=child[cell-5]){
                                                                                                             printf("sbagliato %d, %d, %d\n",depth,child[cell-5],cell);
-                                                                                                        }
-        if (((size / pow(2, child[cell-5])) / dist < THETA))
+                                                                                                        }*/
+        if (((size / pow(2, depth)) / dist < THETA))
         {   
             double xDiff = xPb - xP[cell];                                 // calcolo la distanza tra la particella 1 e la 2
             double yDiff = yPb - yP[cell];                                 // (il centro di massa del nodo = particella)
@@ -425,8 +425,8 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
                     while(cell>=0 && cell<numBody){
 
                         //scalo al prossimo indice con cella libera
-                        int newCell = atomicAdd(&pPointer,-6);
-                        if(newCell-6<numBody){
+                        int newCell = atomicAdd(&pPointer,-5);
+                        if(newCell-5<numBody){
                             printf("\nNon ho spazio disponibile\n");
                             error=1;
                             return;
@@ -437,7 +437,6 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
                         child[newCell-2]=-1;
                         child[newCell-3]=-1;
                         child[newCell-4]=father;
-                        child[newCell-5]=child[father-5]+1;
                         
                         //inserisco la vecchia particella
                         childPath=0;
@@ -513,7 +512,7 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
 // funzione kernel per inizializzare la variabile globale puntatore
 __global__ void setPointer(int num)
 {
-    pPointer = num-7;
+    pPointer = num-6;
 }
 
 // funzioni host
@@ -598,7 +597,7 @@ void printerTree(int* array, int state, int max,int point){
         for(int i=point;i>=0;i--){
             printf("%d , ",array[i]);
             counter++;
-            if(counter%6==0){
+            if(counter%5==0){
                 if(array[i-5]==0){
                     break;
                 }
@@ -758,7 +757,6 @@ void compute(int time)
         cudaMemset(&child[ maxCells - 3], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 4], -1, sizeof(int));
         cudaMemset(&child[ maxCells - 5], -1, sizeof(int));
-        cudaMemset(&child[ maxCells - 6], 0, sizeof(int));
 
         // genero l'albero
         createTree<<<preciseNumBlocks, preciseNumThread>>>(xP, yP, massP, up, down, left, right, child, maxCells-1, numberBody);
@@ -845,12 +843,25 @@ int statGPU()
 
 int main()
 {
+    clock_t start, end;
+    double cpu_time_used;  
     // verifico le stat della gpu e la sua presenza
     statGPU();
     // avvio getInput
     getInput(initial());
     // avvio compute
+    start = clock();
     compute(maxTime);
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     // stampo i risultati del calcolo
+    if(error_h!=0){
+        printf("\nNon completabile\n");
+        return 0;
+    }
     printer();
+    printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
+    printf("body %d",numberBody);
+    printerFile();
+    return 0;
 }
