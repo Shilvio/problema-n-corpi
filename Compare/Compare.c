@@ -30,7 +30,7 @@ void printerFile()
 //massima lunghezza stringa
 #define MAX_LENGTH 1000 
 //massimo numero di iterazioni sulle righe
-#define MAX_ITERATIONS 10000
+#define MAX_ITERATIONS 100 
 //flag di verifica
 bool flag = true;
 //array per contenere le stringhe
@@ -67,13 +67,13 @@ int main(){
   path_composer(ref_path, st, barnes_hut);//selezione path per il file di riferimento (inseriteli a mano e non rompete i coglioni)
   path_composer(com_path, cuda, barnes_hut);//selezione path per il file da verificare
 
-  printf("1)%s \n2)%s",ref_path,com_path);
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //caricamento dei file
   reference_file = fopen(ref_path,"r");
   compared_file = fopen(com_path,"r");
+  printf("%s\n%s",ref_path, com_path);
   //verifa esistenza file
   if (reference_file==NULL || compared_file==NULL){ //se uno dei file non esiste interrompi esecuzione
     if (reference_file==NULL && compared_file==NULL){
@@ -88,7 +88,7 @@ int main(){
     return 0;
   }
   //lettura riga per riga
-  int i,j,line,section=0;//uso 2 contatori separati per le righe poiche sono di dimensioni diverse, piu un contatore di righe e sezioni
+  int i,j,line,section=0;//uso 2 contatori separati per le righe poiche potrebbero essere di dimensioni diverse, piu un contatore di righe e sezioni
   while(fgets(reference_line, MAX_LENGTH, reference_file)){ //finche esistono le righe nel primo file
     fgets(compared_line, MAX_LENGTH, compared_file); //leggo le righe nel secondo file
     if(flag && line<=MAX_ITERATIONS){//finche i risultati sono uguali continuo e le iterazioni minori del massimo
