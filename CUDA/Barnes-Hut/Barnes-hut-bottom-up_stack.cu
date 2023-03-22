@@ -300,7 +300,7 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
     double up=*upA, down = *downA, left=*leftA, right =*rightA;
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     // uccido il thread che non deve inserire particelle
-    if(body>numBody){
+    if(body>=numBody){
         return;
     }
     int father=cell;

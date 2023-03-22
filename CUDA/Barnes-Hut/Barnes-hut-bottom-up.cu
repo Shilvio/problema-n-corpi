@@ -352,7 +352,7 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
     double up=*upA, down = *downA, left=*leftA, right =*rightA;
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     // uccido il thread che non deve inserire particelle
-    if(body>numBody){
+    if(body>=numBody){
         return;
     }
     int father=cell;
@@ -774,7 +774,7 @@ void compute(int time)
                                                                                                 set0<<<1,1>>>(child);
                                                                                                 cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
-                                                                                                printerTree(childH,0,numberBody,maxCells-1);
+                                                                                                //printerTree(childH,0,numberBody,maxCells-1);
          
         
         // calcolo centri di massa

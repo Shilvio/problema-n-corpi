@@ -61,7 +61,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
 
     if(body>=numBody){
         return;
-    };
+    };    
     
     double size = (*right - *left);
     double forceXb = forceX[body];
@@ -156,7 +156,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
         // controllo di non star confrontando la particella con se stessa
         if (dist == 0)
         {
-            //printf("caza %d\n",child[pre]);
+                                                                                                                    //printf("caza %d\n",body);
             cell=child[pre];
             depth--;
             continue;
@@ -304,7 +304,7 @@ __global__ void boundingBoxExpander(double *up, double *down, double *left, doub
    *left=-20;
    *up =20;
    *down =-20;*/
-                                                                        printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
+                                                                        //printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n",*up,*down,*left,*right);
 }
 
 //funzione di calcolo dei centri di massa
@@ -351,7 +351,7 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
     double up=*upA, down = *downA, left=*leftA, right =*rightA;
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     // uccido il thread che non deve inserire particelle
-    if(body>numBody){
+    if(body>=numBody){
         return;
     }
     int father=cell;
@@ -537,7 +537,7 @@ void getInput(FILE *file)
         // imposto le forze iniziali a zero
         forceX[i] = 0;
         forceY[i] = 0;
-        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",\
+        //printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",\
         i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
     printf("\n");
@@ -594,7 +594,7 @@ void printerTree(int* array, int state, int max,int point){
     if(state==0){
         int counter=0;
         printf("(%d) ",point);
-        for(int i=point;i>=0;i--){
+        for(int i=point;i>=44914;i--){
             printf("%d , ",array[i]);
             counter++;
             if(counter%5==0){
@@ -771,7 +771,7 @@ void compute(int time)
                                                                                                 set0<<<1,1>>>(child);
                                                                                                 cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
-                                                                                                printerTree(childH,0,numberBody,maxCells-1);
+                                                                                                //printerTree(childH,0,numberBody,maxCells-1);
          
         
         // calcolo centri di massa

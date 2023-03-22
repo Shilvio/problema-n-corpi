@@ -347,7 +347,7 @@ __global__ void createTree(double *x, double *y, double *mass, double *upP, doub
 {
     int body = threadIdx.x + blockDim.x * blockIdx.x;
     // uccido il thread che non deve inserire particelle
-    if (body > numBody)
+    if (body >= numBody)
     {
         return;
     }
