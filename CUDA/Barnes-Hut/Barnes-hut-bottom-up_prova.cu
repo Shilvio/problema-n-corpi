@@ -574,8 +574,8 @@ FILE *initial()
     fscanf(file, "%d", &numberBody);
     printf("numero particelle: %d\n", numberBody);
     // calcolo max cell offset
-    maxCells = ((numberBody * 2 + 50) * 4);
-    //maxCells = ((numberBody * 2 + 12000) * 4);
+    //maxCells = ((numberBody * 2 + 50) * 4);
+    maxCells = ((numberBody * 2 + 12000) * 4);
     return file;
 }
 
@@ -876,7 +876,7 @@ int main()
         printf("\nNon completabile\n");
         return 0;
     }
-    printer();
+    //printer();
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     printf("body %d",numberBody);
     printerFile();
