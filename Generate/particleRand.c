@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-int const NUMBER_BODY = 60;
+int const NUMBER_BODY = 6000;
 double const dim=100;
 double const mass=5.000e+010;
 double const vel=10;
