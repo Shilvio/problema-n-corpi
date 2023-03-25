@@ -445,6 +445,7 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
                         if(newCell-5<numBody){
                             printf("\nNon ho spazio disponibile\n");
                             error=1;
+                            child[lock] =-1;
                             return;
                         }
                         //assegno ai figli il valore -1, ovvero puntatore a null

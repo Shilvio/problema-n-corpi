@@ -357,7 +357,7 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
 
             cell = child[father - childPath];
         }
-                                                                                //printf("cell: %d\n",cell);
+                                                                                printf("cell: %d, body %d\n",cell,body);
         //controllo se la cella è libera
         if (cell != -2){
             int lock=father-childPath;
@@ -376,8 +376,9 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
                         //scalo al prossimo indice con cella libera
                         int newCell = atomicAdd(&pPointer,-6);
                         if(newCell-6<numBody){
-                            printf("\nNon ho spazio disponibile\n");
+                            printf("\nNon ho spazio disponibile, %d\n",pPointer);
                             error=1;
+                            child[lock] =-1;
                             return;
                         }
                         //assegno ai figli il valore -1, ovvero puntatore a null
@@ -487,7 +488,7 @@ void getInput(FILE *file)
         // imposto le forze iniziali a zero
         forceX[i] = 0;
         forceY[i] = 0;
-        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",\
+        //printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",\
         i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
     printf("\n");
@@ -722,7 +723,7 @@ void compute(int time)
                                                                                                 set0<<<1,1>>>(child);
                                                                                                 cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
-                                                                                                printerTree(childH,0,numberBody,maxCells-1);
+                                                                                                //printerTree(childH,0,numberBody,maxCells-1);
          
         
         // calcolo centri di massa
