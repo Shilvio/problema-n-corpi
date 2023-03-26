@@ -663,10 +663,10 @@ void compute(int time)
     }
 
     //alloco la memoria dei vari parametrio sul device
-    gpuErrchk(cudaMalloc((void **)&xP, sizeof(double) * maxCells * 4));
-    gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * maxCells * 4));   
-    gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells * 4));   
-    gpuErrchk(cudaMalloc((void **)&massP, sizeof(double) * maxCells * 4));
+    gpuErrchk(cudaMalloc((void **)&xP, sizeof(double) * maxCells));
+    gpuErrchk(cudaMalloc((void **)&yP, sizeof(double) * maxCells));   
+    gpuErrchk(cudaMalloc((void **)&child, sizeof(int) * maxCells));   
+    gpuErrchk(cudaMalloc((void **)&massP, sizeof(double) * maxCells));
     gpuErrchk(cudaMalloc((void **)&forceXP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&forceYP, sizeof(double) * numberBody));
     gpuErrchk(cudaMalloc((void **)&velXP, sizeof(double) * numberBody));
@@ -683,7 +683,7 @@ void compute(int time)
     cudaMemcpy(massP, m, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
     gpuErrchk(cudaMemcpy(velXP, velX, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemcpy(velYP, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice));
-                                                                                                int* childH=(int*) malloc( sizeof(int) * maxCells * 4);
+                                                                                                int* childH=(int*) malloc( sizeof(int) * maxCells);
     
     gpuErrchk(cudaDeviceSynchronize());
     // eseguo funzioni cuda
@@ -721,7 +721,7 @@ void compute(int time)
             break;
         }
                                                                                                 set0<<<1,1>>>(child);
-                                                                                                cudaMemcpy(childH,child,sizeof(int) * maxCells * 4,cudaMemcpyDeviceToHost);
+                                                                                                cudaMemcpy(childH,child,sizeof(int) * maxCells,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
                                                                                                 //printerTree(childH,0,numberBody,maxCells-1);
          

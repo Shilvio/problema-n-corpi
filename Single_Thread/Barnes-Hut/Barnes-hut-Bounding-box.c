@@ -5,13 +5,15 @@
 #include <string.h>
 #include <time.h>
 
-int numberBody, seed, maxTime =20;
+int numberBody, seed, maxTime =1;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
-double const THETA = 2;     // thetha per il calcolo delle forze su particell 0.75
+double const THETA = 0;     // thetha per il calcolo delle forze su particell 0.75
 double maxSize;
 double up,down,left,right;
 int deltaTime=1;
+
+int nteta=0;
 
 #define min(i, j) (((i) < (j)) ? (i) : (j))
 #define max(i, j) (((i) > (j)) ? (i) : (j))
@@ -21,6 +23,7 @@ int deltaTime=1;
 // struct particella
 typedef struct particle
 {
+                                                            int id;
     double x;      // posizione x
     double y;      // posizione y
     double mass;   // massa
@@ -85,7 +88,7 @@ void boundingBox(particle *p1)
     left -= 1;
     up += 1;
     down -= 1;
-                                                                                    //printf("\nBounding box: up: %e,down: %e,left: %e,right: %e\n",up,down,left,right);
+                                                                                    printf("\nBounding box: up: %e,down: %e,left: %e,right: %e\n",up,down,left,right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -287,7 +290,8 @@ void getInput(FILE *file, particle *p1)
         fscanf(file, "%lf%lf%lf%lf%lf", &p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY); // prendo i dati dal file
         p1[i].forceX = 0;                                                                           // imposto le forze iniziali a zero
         p1[i].forceY = 0;
-        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        p1[i].id=i;
+        printf("particle id %d, xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",p1[i].id, p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(file); // chiudo il file
 }
@@ -388,6 +392,7 @@ void threeForce(quadTree *t, particle *p)
         double cubeDist = dist * dist * dist;
         p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
         p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+                                                                            nteta++;
                                                                             //printf("ciao\n");
         return;
     }
@@ -506,6 +511,7 @@ int main()
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
     //printerAlt(p1);       // stampo i risultati
+    printf("teta %d",nteta);
     printerFile(p1);
     return 0;
 }
