@@ -8,7 +8,7 @@
 int numberBody, seed, maxTime =1;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
-double const THETA = 0;     // thetha per il calcolo delle forze su particell 0.75
+double const THETA = 2;     // thetha per il calcolo delle forze su particell 0.75
 double maxSize;
 double up,down,left,right;
 int deltaTime=1;
@@ -291,7 +291,7 @@ void getInput(FILE *file, particle *p1)
         p1[i].forceX = 0;                                                                           // imposto le forze iniziali a zero
         p1[i].forceY = 0;
         p1[i].id=i;
-        printf("particle id %d, xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",p1[i].id, p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        //printf("particle id %d, xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",p1[i].id, p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(file); // chiudo il file
 }
@@ -362,9 +362,16 @@ void threeForce(quadTree *t, particle *p)
     // printf("id=%s",t->id);
     // printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
     double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));
-    
+                                                                                bool c=false;
+                                                                                if(p->id==500){
+                                                                                    c=true;
+                                                                                }
+                                                                                if(c)
+                                                                                printf("x: %e y: %e dist %e \n",t->mc->x,t->mc->y,dist);
     if (dist == 0)
     {
+                                                                            if(c)
+                                                                            printf("back0\n");
         return;
     }
     if (!t->div) // se non e diviso
@@ -377,6 +384,8 @@ void threeForce(quadTree *t, particle *p)
             double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
             p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
             p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+                                                                            if(c)
+                                                                            printf("back cell\n");
                                                                             //printf("dist:%e mass: %e xdif: %e \n",p->mass, t->mc->mass, t->mc->y);
                                                                             //printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * xDiff);
             // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
@@ -384,7 +393,8 @@ void threeForce(quadTree *t, particle *p)
         }
         return;
     }
-                                                                                            //printf("%e\n", dist );                                     
+
+                                                                                                                                 
     if ((t->right-t->left) / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
     {
         double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
@@ -394,12 +404,18 @@ void threeForce(quadTree *t, particle *p)
         p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
                                                                             nteta++;
                                                                             //printf("ciao\n");
+                                                                            if(c)
+                                                                            printf("back\n");
         return;
     }
-    threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
+    /*threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
     threeForce(t->se, p);
     threeForce(t->sw, p);
-    threeForce(t->nw, p);
+    threeForce(t->nw, p);*/
+                                                                                threeForce(t->se, p); // applico la stessa funzione attraverso figli del nodo
+                                                                                threeForce(t->ne, p);
+                                                                                threeForce(t->sw, p);
+                                                                                threeForce(t->nw, p);
     return;
 }
 // funzione che calcola la nuova posizione e la nuova velocità della particella

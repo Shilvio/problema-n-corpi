@@ -16,7 +16,7 @@ cudaDeviceProp pr;
 
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
-__device__ const double THETA = 0;    // theta per il calcolo delle forze su particell
+__device__ const double THETA = 2.0;    // theta per il calcolo delle forze su particell
 __device__ const int stackSize = 24;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
 __device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
 __device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle
@@ -46,7 +46,7 @@ __device__ int h = 0;
 __global__ void calculateMovement(double *xP, double *yP, double *mP,double *forceX, double *forceY, double *velX, double *velY,int numBody){
 
     int body = threadIdx.x + blockDim.x * blockIdx.x;
-
+                                                                                                    
     if(body>=numBody){
         return;
     };
@@ -59,7 +59,11 @@ __global__ void calculateMovement(double *xP, double *yP, double *mP,double *for
 
 __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *left, double *right)
 {
-    int body = threadIdx.x + blockDim.x * blockIdx.x;
+    int body = threadIdx.x + blockDim.x * blockIdx.x;   
+                                                                                                    bool c=false;
+                                                                                                    if(body==500){
+                                                                                                        c=true;
+                                                                                                    }
 
     if(body>=numBody){
         return;
@@ -78,6 +82,11 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
     int pre=cell;      
 
     double dist = sqrtf(pow(xPb - xP[cell], 2) + pow(yPb - yP[cell], 2));
+                                                                                                            if(c){
+                                                                                                                printf("x: %e y: %e dist %e \n",xP[cell],yP[cell],dist);
+                                                                                                                //printf("cell: %d pre:%d, %d\n\n\n",cell,pre,depth);
+                                                                                                            }
+                                                                                                            
                                                                                             //printf("%e\n",dist);
     if (((size / pow(2, depth)) / dist < THETA))
     {   
@@ -86,7 +95,8 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
         double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
         forceXb -= ((G * mPb * mP[cell]) / cubeDist) * xDiff;          // per il calcolo della forza sui 2 assi
         forceYb -= ((G * mPb * mP[cell]) / cubeDist) * yDiff;
-
+                                                                        atomicAdd(&arturo,1);
+                                                                        //printf("teta %d\n",arturo);
         forceX[body] = forceXb;
         forceY[body] = forceYb;
         return;
@@ -95,6 +105,8 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
     // ciclo finchè ho filgi da analizzare, carico il figlio e aggiorno lo stack pointer
     while (true)
     {        
+                                                                                                            
+                                                                                                            //printf("size %e\n",size);
                                                                                                                                         //printf("cell: %d pre:%d, %d\n",cell,pre,depth);
         if (cell==-1)
         {
@@ -169,6 +181,11 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
         }
         
         double dist = sqrtf(pow(xPb - xP[cell], 2) + pow(yPb - yP[cell], 2));
+                                                                                                            if(c){
+                                                                                                                printf("x: %e y: %e dist %e \n",xP[cell],yP[cell],dist);
+                                                                                                                //printf("cell: %d pre:%d, %d\n\n\n",cell,pre,depth);
+                                                                                                            }
+                                                                                                            
 
         // controllo di non star confrontando la particella con se stessa
         if (dist == 0)
@@ -176,6 +193,8 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                                                                                                                     //printf("caza %d\n",body);
             cell=child[pre];
             depth--;
+                                                                                if(c)
+                                                                                printf("back0\n");
             continue;
         }
 
@@ -191,7 +210,8 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
 
             cell=child[pre];
             depth--;
-
+                                                                                if(c)
+                                                                                printf("back cell\n");
             continue;
                                                                                     //printf("dist:%e mass:%e xPcell: %e cell: %d\n",mPb,mP[cell],yP[cell],cell);
                                                                                     // printf("body %d, cell %d\n",body,cell);
@@ -215,6 +235,8 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
             cell=child[pre-4];
             depth--;
                                                                                 //printf("teta %d, %d\n",cell,pre);
+                                                                                if(c)
+                                                                                printf("back\n");
                                                                                 //printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
         }
     }
@@ -633,7 +655,7 @@ void getInput(FILE *file)
         // imposto le forze iniziali a zero
         forceX[i] = 0;
         forceY[i] = 0;
-        printf("particle id %d, xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",\
+        //printf("particle id %d, xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",\
         i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
     printf("\n");
@@ -661,6 +683,10 @@ FILE *initial()
 
                                                                                                     __global__ void set0(int* child){
                                                                                                         child[pPointer-4]=0;
+                                                                                                    }
+
+                                                                                                    __global__ void printCenterMass(double* x,double*y,int max){
+                                                                                                        printf("x:%e y:%e\n",x[max],y[max]);
                                                                                                     }
 
 __global__ void checkError(int* er){
@@ -769,7 +795,6 @@ void returnCuda(double *xP, double *yP, double *velXP, double *velYP, double *fo
     gpuErrchk(cudaMemcpy(velY, velYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
     gpuErrchk(cudaMemcpy(forceX, forceXP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
     gpuErrchk(cudaMemcpy(forceY, forceYP, sizeof(double) * numberBody, cudaMemcpyDeviceToHost));
-                                                                                                            //printf("teta %d",arturo);
 }
 
 // stampa le particelle
@@ -875,6 +900,7 @@ void compute(int time)
         // sincronizzo i kernel a fine esecuzione
 
         checkError<<<1,1>>>(er);
+        cudaDeviceSynchronize();
         gpuErrchk(cudaMemcpy(&error_h, er, sizeof(int), cudaMemcpyDeviceToHost));
         if(error_h!=0){
             printf("\nNon ho spazio disponibile per creare l'albero\n");
@@ -889,6 +915,8 @@ void compute(int time)
         // calcolo centri di massa
         calculateCenterMass<<<preciseNumBlocks, preciseNumThread>>>(child,xP,yP,massP,numberBody);
         cudaDeviceSynchronize();
+                                                                                                printf("cazzo: %d\n",maxCells-1);
+                                                                                                printCenterMass<<<1,1>>>(xP,yP,maxCells-1);
 
         calculateForce<<<preciseNumBlockSize, blockSize>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, left, right);    //precisa sizeBlock
         cudaDeviceSynchronize();
