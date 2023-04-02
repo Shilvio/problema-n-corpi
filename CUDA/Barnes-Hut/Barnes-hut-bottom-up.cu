@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 1;
+int maxCells, numberBody, seed, maxTime = 5;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 int error_h=0;
@@ -61,7 +61,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
 {
     int body = threadIdx.x + blockDim.x * blockIdx.x;   
                                                                                                     bool c=false;
-                                                                                                    if(body==500){
+                                                                                                    if(body==-1){
                                                                                                         c=true;
                                                                                                     }
 
@@ -236,7 +236,7 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
             depth--;
                                                                                 //printf("teta %d, %d\n",cell,pre);
                                                                                 if(c)
-                                                                                printf("back\n");
+                                                                                printf("back %d\n",depth);
                                                                                 //printf("body %d, size %d",body,((G * mP[body] * mP[cell]) / cubeDist) * xDiff);
         }
     }
@@ -324,7 +324,7 @@ __global__ void boundingBox(double *xP, double *yP, int numBody, double *up, dou
         // utiliziamo un mutex per accedere alla memoria globale evitando concorrenza
         while (atomicCAS(lock, 0, 1) != 0);
                                                                     //printf("\nprima: up: %e,down: %e,left: %e,right: %e\n",*up,*down,*left,*right);
-
+        __threadfence();
         *left = fminf(*left, leftCache[0]);
         *right = fmaxf(*right, rightCache[0]);
         *up = fmaxf(*up, upCache[0]);
@@ -375,13 +375,16 @@ __global__ void calculateCenterMass(int* child,double* xP,double* yP,double* mP,
             if(massCell==0){
                 return;
             }
+
             mass+=massCell;
             mcX+=massCell*xP[childCell];
             mcY+=massCell*yP[childCell];
         }
+        
         xP[cell]=mcX/mass;
         yP[cell]=mcY/mass;
         mP[cell]=mass;
+        
                                                                                 //printf("cell %d, x %e, y %e, mass %e\n",cell,xP[cell],yP[cell],mass);
         cell=child[cell-4];
         if(cell==-1){
@@ -400,12 +403,12 @@ __global__ void createTree(double* x, double* y,double* mass, double* upA, doubl
     if(body>=numBody){
         return;
     }
-                                                                                        double prento;
+                                                                                        /*double prento;
                                                                                         double prer;
                                                                                         double prel;
                                                                                         prento=0.5*(left+right);
                                                                                         prer=right;
-                                                                                        prel=left;
+                                                                                        prel=left;*/
                                                                                         if(x[body]<left){
                                                                                             printf("\n0down id:%d \nbody X %e\n\n\n\n",body,x[body]);
                                                                                             //child[lock]=-1;
@@ -688,6 +691,7 @@ FILE *initial()
                                                                                                     __global__ void printCenterMass(double* x,double*y,int max){
                                                                                                         printf("x:%e y:%e\n",x[max],y[max]);
                                                                                                     }
+                                                                                                    
 
 __global__ void checkError(int* er){
     *er=error;
@@ -713,10 +717,10 @@ __global__ void resetArray(double *xP, double *yP, double *massP, int point)
 }
 
 //funzione grafica per stampare l'albero creato da crateTree()
-void printerTree(int* array, int state, int max,int point){
+void printerTree(int* array, int state, int max,int point,double up,double down,double left,double right,double* x,double* y){
     if(state==0){
         int counter=0;
-        printf("(%d) ",point);
+        /*printf("(%d) ",point);
         for(int i=point;i>=0;i--){
             printf("%d , ",array[i]);
             counter++;
@@ -733,18 +737,20 @@ void printerTree(int* array, int state, int max,int point){
             counter2--;
             printf("(%d) %d , ",counter2,array[i]);
         }
-        printf("\n");
-        return;
+        printf("\n");*/
+        
+        freopen("output.txt", "a+", stdout);
+        //return;
         printf("\n%d count %d",point,counter);
         printf("\n\n");
         printf("0\n");
-        printerTree(array,state+1,max,point);
+        printerTree(array,state+1,max,point,(up+down)*0.5,down,(left+right)*0.5,right,x,y);
         printf("1\n");
-        printerTree(array,state+1,max,point-1);
+        printerTree(array,state+1,max,point-1,up,(up+down)*0.5,(left+right)*0.5,right,x,y);
         printf("2\n");
-        printerTree(array,state+1,max,point-2);
+        printerTree(array,state+1,max,point-2,(up+down)*0.5,down,left,(left+right)*0.5,x,y);
         printf("3\n");
-        printerTree(array,state+1,max,point-3);
+        printerTree(array,state+1,max,point-3,up,(up+down)*0.5,left,(left+right)*0.5,x,y);
         return;
     }
 
@@ -760,28 +766,28 @@ void printerTree(int* array, int state, int max,int point){
         if(array[point]==-1){
             printf("void\n");
         }else{
-            printf("%d ",point);
-            printf("point: %d\n",array[point]);
+            //printf("%d ",point);
+            printf("body: %d x:%e y:%e\n",array[point],x[array[point]],y[array[point]]);
         }
         return;
     }
-    printf("0\n");
-    printerTree(array,state+1,max,array[point]);
+    printf("0 up: %e down: %e left %e right %e\n\n",up,down,left,right);
+    printerTree(array,state+1,max,array[point],(up+down)*0.5,down,(left+right)*0.5,right,x,y);
     for(int i=0;i<state;i++){
         printf("\t");
     }
-    printf("1\n");
-    printerTree(array,state+1,max,array[point]-1);
+    printf("1 up: %e down: %e left %e right %e\n\n",up,down,left,right);
+    printerTree(array,state+1,max,array[point]-1,up,(up+down)*0.5,(left+right)*0.5,right,x,y);
     for(int i=0;i<state;i++){
         printf("\t");
     }
-    printf("2\n");
-    printerTree(array,state+1,max,array[point]-2);
+    printf("2 up: %e down: %e left %e right %e\n\n",up,down,left,right);
+    printerTree(array,state+1,max,array[point]-2,(up+down)*0.5,down,left,(left+right)*0.5,x,y);
     for(int i=0;i<state;i++){
         printf("\t");
     }
-    printf("3\n");
-    printerTree(array,state+1,max,array[point]-3);
+    printf("3 up: %e down: %e left %e right %e\n\n",up,down,left,right);
+    printerTree(array,state+1,max,array[point]-3,up,(up+down)*0.5,left,(left+right)*0.5,x,y);
 
 }
 
@@ -909,14 +915,29 @@ void compute(int time)
                                                                                                 set0<<<1,1>>>(child);
                                                                                                 cudaMemcpy(childH,child,sizeof(int) * maxCells,cudaMemcpyDeviceToHost);
                                                                                                 // ritorno l'albero a l'host per la stampa e lo stampo
-                                                                                                //printerTree(childH,0,numberBody,maxCells-1);
-         
+                                                                                                /*double up2[1],down2[1],left2[1],right2[1];
+
+                                                                                                double *xPassato=(double*)malloc(sizeof(double)*numberBody);
+                                                                                                double *yPassato=(double*)malloc(sizeof(double)*numberBody);
+
+                                                                                                cudaMemcpy(xPassato,xP,sizeof(double)*numberBody,cudaMemcpyDeviceToHost);
+                                                                                                cudaMemcpy(yPassato,yP,sizeof(double)*numberBody,cudaMemcpyDeviceToHost);
+                                                                                                
+                                                                                                cudaMemcpy(up2,up,sizeof(double),cudaMemcpyDeviceToHost);
+                                                                                                cudaMemcpy(down2,down,sizeof(double),cudaMemcpyDeviceToHost);
+                                                                                                cudaMemcpy(left2,left,sizeof(double),cudaMemcpyDeviceToHost);
+                                                                                                cudaMemcpy(right2,right,sizeof(double),cudaMemcpyDeviceToHost);
+
+                                                                                                //printf("cazzo %e %e %e %e\n",*up2,*down2,*left2,*right2);
+                                                                                                printerTree(childH,0,numberBody,maxCells-1,*up2,*down2,*left2,*right2,xPassato,yPassato);
+                                                                                                */
+                                                                                                
         
         // calcolo centri di massa
         calculateCenterMass<<<preciseNumBlocks, preciseNumThread>>>(child,xP,yP,massP,numberBody);
         cudaDeviceSynchronize();
-                                                                                                printf("cazzo: %d\n",maxCells-1);
-                                                                                                printCenterMass<<<1,1>>>(xP,yP,maxCells-1);
+                                                                                                //printf("cazzo: %d\n",maxCells-1);
+                                                                                                //printCenterMass<<<1,1>>>(xP,yP,maxCells-1);
 
         calculateForce<<<preciseNumBlockSize, blockSize>>>(child, xP, yP, massP, maxCells - 1, numberBody, forceXP, forceYP, left, right);    //precisa sizeBlock
         cudaDeviceSynchronize();

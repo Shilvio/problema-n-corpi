@@ -6,7 +6,7 @@
 #include <time.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 5;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
+int maxCells, numberBody, seed, maxTime = 10;       // numero massimo di celle, numero particelle, seed di generazione, tempo massimo di esecuzione
 char fileInput[] = "../../Generate/particle.txt";  // file di input contenente le particelle iniziali
 double *x, *y, *m, *velX, *velY, *forceX, *forceY; // futuri puntatori agli array dei field delle particelle (posizioni: x,y,  masse, velocità: x,y,  forze: x,y)
 int error_h=0;
@@ -15,7 +15,7 @@ cudaDeviceProp pr;
 
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
-__device__ const double THETA = 0;    // theta per il calcolo delle forze su particell
+__device__ const double THETA = 2;    // theta per il calcolo delle forze su particell
 __device__ const int stackSize = 24;     // size dello stack per la gestione della ricorsione e per la pila delle profondità
 __device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
 __device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle

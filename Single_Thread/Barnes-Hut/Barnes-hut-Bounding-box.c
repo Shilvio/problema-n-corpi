@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-int numberBody, seed, maxTime =1;
+int numberBody, seed, maxTime =5;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 double const THETA = 2;     // thetha per il calcolo delle forze su particell 0.75
@@ -42,7 +42,7 @@ typedef struct massCenter
 
 typedef struct quadTree
 {
-    char id[20];         // index del nodo utile solo al debug
+    char id[100];         // index del nodo utile solo al debug
     double up;           // dimensione superiore del quadrante
     double down;         // dimensione inferiore del quadrante
     double left;         // dimensione sinistra del quadrante
@@ -363,7 +363,7 @@ void threeForce(quadTree *t, particle *p)
     // printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
     double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));
                                                                                 bool c=false;
-                                                                                if(p->id==500){
+                                                                                if(p->id==-1){
                                                                                     c=true;
                                                                                 }
                                                                                 if(c)
