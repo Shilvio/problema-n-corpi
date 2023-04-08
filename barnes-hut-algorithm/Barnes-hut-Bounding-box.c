@@ -6,7 +6,7 @@
 #include <time.h>
 
 int numberBody, seed, maxTime = 1;
-char fileInput[] = "../generate-particles/particle.txt";
+char fileInput[] = "../particles-data/particle.txt";
 // 6.67384E-11;
 double const G = 1e+03;
 // costante gravitazione universale
@@ -398,7 +398,7 @@ void calculatePosition(particle *p, int time)
     p->y += time * p->velY;
     p->velX += time / p->mass * p->forceX;
     p->velY += time / p->mass * p->forceY;
-    fprintf(solution, "%e,%e,%e,%e,%e\n", p->x, p->y, p->mass, p->velX, p->velY);
+    fprintf(solution, "%lf %lf %lf %lf %lf\n", p->x, p->y, p->mass, p->velX, p->velY);
 }
 // funzione per distruggere l' albero a ogni iterazione dell' algoritmo
 // scandaglio l' albero e libero mano mano la memoria
@@ -469,20 +469,14 @@ void compute(particle *p1, int time)
 int main()
 {
 
-    clock_t start, end;
-    double cpu_time_used;
     FILE *file = initial();                               // apro il file
     particle *p1 = malloc(sizeof(particle) * numberBody); // alloco la memoria per l'array che conterrà tutte le particelle (p1)
-    getInput(file, p1);                                   // lancio lo script per recuperare le particelle
-    printf("\n");
-    start = clock();
+    getInput(file, p1);
+    solution = fopen("../particles-data/particle.txt", "w+");
+    fprintf(solution, "%d %d\n", seed, numberBody);
+    // lancio lo script per recuperare le particelle
     compute(p1, maxTime); // applico la funzione compute per gestire il programma
     fclose(solution);
-    end = clock();
-    cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-    printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used);
-    // stampo i risultati
-    // printf("teta %d", nteta);
 
     return 0;
 }
