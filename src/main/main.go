@@ -9,10 +9,11 @@ import (
 func main() {
 
 	fmt.Println("calling c barnes-hut")
-	out, err := exec.Command("ls", "-l", ".").Output()
+	_, err := exec.Command("gcc", "../barnes-hut-algorithm/Barnes-hut-Bounding-box.c", "-o", "Barnes-hut-Bounding-box").Output()
 	if err != nil {
 		log.Fatal("command reported an error ", err)
 
+	} else {
+		fmt.Println("Program executed")
 	}
-	fmt.Println("outpout is: %s", out)
 }
