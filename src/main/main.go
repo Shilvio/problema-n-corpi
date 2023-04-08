@@ -1,38 +1,18 @@
-/* package main
-
-import (
-	"visualizer/demo/fileReader"
-	graphbuilder "visualizer/demo/graphBuilder"
-)
-
-type xy = fileReader.Xy
-
-func main() {
-
-	var positions []xy
-	positions = fileReader.ParseFile()
-	//for _, a := range positions {
-	//	fmt.Println(a.Id, a.X, a.Y)
-	//}
-	graphbuilder.GenerateGraph(positions)
-}
-*/
-
-/*
-
-
-
- */
-
 package main
 
 import (
-	"C"
+	"fmt"
+	"log"
+	"os/exec"
 )
-import "fmt"
 
 func main() {
 
 	fmt.Println("calling c barnes-hut")
+	out, err := exec.Command("ls", "-l", ".").Output()
+	if err != nil {
+		log.Fatal("command reported an error ", err)
 
+	}
+	fmt.Println("outpout is: %s", out)
 }
