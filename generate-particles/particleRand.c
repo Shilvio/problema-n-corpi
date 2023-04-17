@@ -9,7 +9,7 @@ unsigned int const seed = 3;
 
 int main()
 {
-    FILE *file = fopen("particle.txt", "w");
+    FILE *file = fopen("../particles-data/particle.txt", "w");
     srand(seed);
     fprintf(file, "%d %d\n", seed, NUMBER_BODY);
     for (int i = 0; i < NUMBER_BODY; i++)
