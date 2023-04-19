@@ -8,9 +8,9 @@
 int numberBody, seed, maxTime = 1;
 char fileInput[] = "../particles-data/particle.txt";
 // 6.67384E-11;
-double const G = 1e+03;
+double const G = 6.67384;
 // costante gravitazione universale
-double const THETA = 2; // thetha per il calcolo delle forze su particell 0.75
+double const THETA = 0.75; // thetha per il calcolo delle forze su particell 0.75
 double maxSize;
 double up, down, left, right;
 int deltaTime = 1;
@@ -206,72 +206,6 @@ void buildquadTree(particle *p1, quadTree *t)
     }
 }
 
-// funzione che stampa l' albero per eventuale debug e visualizzazione
-void printer(quadTree *t, int i)
-{
-    if (t->p == NULL)
-    {
-        for (int j = 0; j < i; j++)
-        {
-            printf("     ");
-        }
-        printf("vuoto\n");
-        return;
-    }
-
-    for (int j = 0; j < i; j++)
-    {
-        printf("     ");
-    }
-
-    if (t->mc == NULL)
-    {
-        printf("id=%s\n", t->id);
-    }
-    else
-    {
-        printf("id=%s cm(x= %e, y= %e, mass= %e)\n", t->id, t->mc->x, t->mc->y, t->mc->mass);
-    }
-
-    i += 1;
-    if (t->div)
-    {
-        for (int j = 0; j < i; j++)
-        {
-            printf("     ");
-        }
-        printf("ne\n");
-        printer(t->ne, i + 1);
-        for (int j = 0; j < i; j++)
-        {
-            printf("     ");
-        }
-        printf("se\n");
-        printer(t->se, i + 1);
-        for (int j = 0; j < i; j++)
-        {
-            printf("     ");
-        }
-        printf("sw\n");
-        printer(t->sw, i + 1);
-        for (int j = 0; j < i; j++)
-        {
-            printf("     ");
-        }
-        printf("nw\n");
-        printer(t->nw, i + 1);
-    }
-    else
-    {
-        for (int j = 0; j < i; j++)
-        {
-            printf("     ");
-        }
-        printf(" pX %e pY %e mass %e\n", t->p->x, t->p->y, t->p->mass);
-    }
-    return;
-}
-
 // funzione che legge il file di inpiut
 void getInput(FILE *file, particle *p1)
 { // popolo l'array con le particelle nel file
@@ -292,10 +226,8 @@ FILE *initial()
     FILE *file = fopen(fileInput, "r");
     // prendo il seed
     fscanf(file, "%d", &seed);
-    printf("%d\n", seed);
     // prendo il numero di corpi
     fscanf(file, "%d", &numberBody);
-    printf("%d\n", numberBody);
     return file;
 }
 // calcolo il centro di massa e la massa totale per le particelle in ogni sottoquadrato
@@ -325,9 +257,11 @@ massCenter *centerMass(quadTree *c)
     massCenter *se = centerMass(c->se); // calcolo centro di massa alla radice del quadrante sud est (2)
     massCenter *sw = centerMass(c->sw); // calcolo centro di massa alla radice del quadrante sud ovest (3)
     massCenter *nw = centerMass(c->nw); // calcolo centro di massa alla radice del quadrante  ord ovest (4)
+
     // la massa di un nodo è la somma delle masse dei
     // figli = mass(1) + mass(2) + mass(3) + mass(4)
     mc->mass = ne->mass + se->mass + sw->mass + nw->mass;
+
     // il centro di massa di un nodo è la somma pesata dei centri di massa dei
     // poizione = (mass(1)*cm(1) + mass(2)*cm(2) + mass(3)*cm(3) + mass(4)*cm(4)) / mass
     mc->x = (ne->mass * ne->x + nw->mass * nw->x + se->mass * se->x + sw->mass * sw->x) / mc->mass;
@@ -341,17 +275,9 @@ massCenter *centerMass(quadTree *c)
 void threeForce(quadTree *t, particle *p)
 {
     double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));
-    bool c = false;
-    if (p->id == -1)
-    {
-        c = true;
-    }
-    if (c)
-        printf("x: %e y: %e dist %e \n", t->mc->x, t->mc->y, dist);
+
     if (dist == 0)
     {
-        if (c)
-            printf("back0\n");
         return;
     }
     if (!t->div) // se non e diviso
@@ -359,13 +285,12 @@ void threeForce(quadTree *t, particle *p)
         if (t->p != NULL) // se c'è una sola particella
         {
 
-            double xDiff = p->x - t->mc->x;                                // calcolo la distanza tra la particella 1 e la 2
-            double yDiff = p->y - t->mc->y;                                // (il centro di massa del nodo = particella)
-            double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
-            p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
-            p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-            if (c)
-                printf("back cell\n");
+            double xDiff = p->x - t->mc->x;                                   // calcolo la distanza tra la particella 1 e la 2
+            double yDiff = p->y - t->mc->y;                                   // (il centro di massa del nodo = particella)
+            double cubeDist = 1 / (dist * dist * dist);                       // elevo al cubo la distanza e applico la formula di newton
+            p->forceX += ((G * t->p->mass * t->mc->mass) * cubeDist * xDiff); // per il calcolo della forza sui 2 assi
+
+            p->forceY += ((G * t->p->mass * t->mc->mass) * cubeDist * yDiff);
         }
         return;
     }
@@ -374,9 +299,9 @@ void threeForce(quadTree *t, particle *p)
     {
         double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
         double yDiff = p->y - t->mc->y;
-        double cubeDist = dist * dist * dist;
-        p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
-        p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
+        double cubeDist = 1 / (dist * dist * dist);
+        p->forceX += ((G * t->p->mass * t->mc->mass) * cubeDist * xDiff);
+        p->forceY += ((G * t->p->mass * t->mc->mass) * cubeDist * yDiff);
         nteta++;
 
         return;
@@ -398,6 +323,7 @@ void calculatePosition(particle *p, int time)
     p->y += time * p->velY;
     p->velX += time / p->mass * p->forceX;
     p->velY += time / p->mass * p->forceY;
+
     fprintf(solution, "%lf %lf %lf %lf %lf\n", p->x, p->y, p->mass, p->velX, p->velY);
 }
 // funzione per distruggere l' albero a ogni iterazione dell' algoritmo
