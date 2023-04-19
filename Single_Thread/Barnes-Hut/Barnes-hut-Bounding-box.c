@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-int numberBody, seed, maxTime =5;
+int numberBody, seed, maxTime =50;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 double const THETA = 2;       // thetha per il calcolo delle forze su particell 0.75

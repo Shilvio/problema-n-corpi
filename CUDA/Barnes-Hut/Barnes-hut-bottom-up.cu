@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 5;
+int maxCells, numberBody, seed, maxTime = 50;
 char fileInput[] = "../../Generate/particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 int error_h=0;
@@ -54,6 +54,8 @@ __global__ void calculateMovement(double *xP, double *yP, double *mP,double *for
     yP[body] += deltaTime * velY[body];
     velX[body] += deltaTime / mP[body] * forceX[body];
     velY[body] += deltaTime / mP[body] * forceY[body];
+
+                                                                                //printf("body %d, x %e, y %e, fx %e, fy %e\n",body,xP[body],yP[body],velX[body],velY[body]);
 }
 
 __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, int point, int numBody, double *forceX, double *forceY, double *left, double *right)
@@ -85,7 +87,10 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
                                                                                                                 printf("x: %e y: %e dist %e \n",xP[cell],yP[cell],dist);
                                                                                                                 //printf("cell: %d pre:%d, %d\n\n\n",cell,pre,depth);
                                                                                                             }
-                                                                                                            
+    if (dist == 0)
+    {
+        return;
+    }                                                                                                        
                                                                                             //printf("%e\n",dist);
     if (((size / pow(2, depth)) / dist < THETA))
     {   
@@ -246,12 +251,13 @@ __global__ void calculateForce(int *child, double *xP, double *yP, double *mP, i
     forceY[body] = forceYb;
 }
 // setto la x e y iniziali
-__global__ void initialPosition(double *up, double *down, double *left, double *right, double x,double y){
+__global__ void initialPosition(double *up, double *down, double *left, double *right, double* x,double* y){
     
-    *up=y;
-    *down=y;
-    *left=x;
-    *right=x;
+    *up=y[0];
+    *down=y[0];
+    *left=x[0];
+    *right=x[0];
+                                                            //printf("initial: x: %e, y %e\n",x[0],y[0]);
 }
 // calcolo la bounding box delle particelle, applicando tecniche di riduzione gpu
 __global__ void boundingBox(double *xP, double *yP, int numBody, double *up, double *down, double *left, double *right, int *lock)
@@ -882,7 +888,7 @@ void compute(int time)
         // invoco la funzione per settarre la variabile puntatore globale nel device
         setPointer<<<1,1>>>(maxCells);
 
-        initialPosition<<<1,1>>>(up, down, left, right,x[0],y[0]);
+        initialPosition<<<1,1>>>(up, down, left, right,xP,yP);
 
         cudaDeviceSynchronize();
         
