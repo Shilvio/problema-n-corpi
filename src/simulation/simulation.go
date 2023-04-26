@@ -17,7 +17,7 @@ func GenerateBodies(n int, dim float64, m float64, v float64) ([][]float64, [][]
 	}
 
 	mass := make([]float64, n)
-	for i := 0; i < n; i++ {
+	for i := 0; i < n-1; i++ {
 
 		mass[i] = rand.Float64() * m
 
@@ -30,6 +30,14 @@ func GenerateBodies(n int, dim float64, m float64, v float64) ([][]float64, [][]
 		vel[2][i] = rand.NormFloat64() * v
 
 	}
+	mass[n-1] = 50
+
+	pos[0][n-1] = 20
+	pos[1][n-1] = 20
+	pos[2][n-1] = 0
+	vel[0][n-1] = 0
+	vel[1][n-1] = 0
+	vel[2][n-1] = 0
 	return pos, vel, mass
 
 }
@@ -55,11 +63,11 @@ func CalcAcc(pos [][]float64, mass []float64, n int, g float64, softening float6
 			dy := pos[1][i] - pos[1][j]
 			dz := pos[2][i] - pos[2][j]
 
-			inv_r3 := math.Pow((dx*dx + dy*dy + dz*dz + softening*softening), -1.5)
+			inv_r3 := math.Pow((math.Pow(dx, 2) + math.Pow(dy, 2) + math.Pow(dz, 2) + math.Pow(softening, 2)), -1.5)
 
-			acc[0][i] = g * dx * inv_r3 * mass[j]
-			acc[1][i] = g * dy * inv_r3 * mass[j]
-			acc[2][i] = g * dz * inv_r3 * mass[j]
+			acc[0][i] += -g * dx * inv_r3 * mass[j]
+			acc[1][i] += -g * dy * inv_r3 * mass[j]
+			acc[2][i] += -g * dz * inv_r3 * mass[j]
 
 		}
 	}
@@ -101,6 +109,7 @@ func CalcVel(vel *[][]float64, acc [][]float64, n int, dt float64) {
 		v[0][i] += acc[0][i] * dt / 2.0
 		v[1][i] += acc[1][i] * dt / 2.0
 		v[2][i] += acc[2][i] * dt / 2.0
+
 	}
 }
 
@@ -112,5 +121,4 @@ func CalcPos(pos *[][]float64, vel [][]float64, n int, dt float64) {
 		p[1][i] += vel[1][i] * dt
 		p[2][i] += vel[2][i] * dt
 	}
-
 }
