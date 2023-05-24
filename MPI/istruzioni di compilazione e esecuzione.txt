@@ -1,0 +1,7 @@
+compilazione:
+
+mpicc -g -Wall -o "nome output" "file .c"
+
+esecuzione:
+
+mpiexec -n 5 "file eseguibile"
