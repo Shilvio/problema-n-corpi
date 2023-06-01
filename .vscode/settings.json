@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "cmath": "cpp",
-        "*.tcc": "c",
-        "string": "c",
-        "istream": "c",
-        "streambuf": "c"
-    }
-}
