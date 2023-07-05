@@ -3,14 +3,13 @@
 #include <math.h>
 #include <time.h>
 
-//variabili per il calcolo del tempo di esecuzione
-
+// variabili per il calcolo del tempo di esecuzione
 
 int numberBody, seed, maxTime = 5;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11;
-//double const G = 1;
-double const deltaTime=1;
+// double const G = 1;
+double const deltaTime = 1;
 
 typedef struct particle
 {
@@ -49,18 +48,18 @@ void calculateTotalForce(particle *p1, int j)
         double cubeDist = dist * dist * dist;
         p1[j].forceX -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * xDiff;
         p1[j].forceY -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff;
-                                                                                        //printf("\n%e",((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff);
-                                                                                        //printf("\n px=%e py=%e fX=%e fY=%e \n",p1[j].x,p1[j].y,p1[j].forceX,p1[j].forceY);
-                                                                                        //printf("px=%e py=%e \n",p1[i].x,p1[i].y);
+        // printf("\n%e",((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff);
+        // printf("\n px=%e py=%e fX=%e fY=%e \n",p1[j].x,p1[j].y,p1[j].forceX,p1[j].forceY);
+        // printf("px=%e py=%e \n",p1[i].x,p1[i].y);
     }
 }
 
 void printerFile(particle *p1)
 {
-    FILE* solution=fopen("solution.txt","w");
+    FILE *solution = fopen("solution.txt", "w");
     for (int i = 0; i < numberBody; i++)
     {
-        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(solution);
 }
@@ -105,7 +104,7 @@ void getInput(FILE *file, particle *p1)
         // imposto le forze iniziali a zero
         p1[i].forceX = 0;
         p1[i].forceY = 0;
-        //printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+        // printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     // chiudo il file
     fclose(file);
@@ -126,9 +125,9 @@ FILE *initial()
 }
 
 int main()
-{   
+{
     clock_t start, end;
-    double cpu_time_used;   
+    double cpu_time_used;
     // apro il file dove si trovano tutte le particelle
     FILE *file = initial();
     // alloco la memoria per l'array che contierrà tutte le particelle (p1)
@@ -136,14 +135,14 @@ int main()
     // popolo l'array
     getInput(file, p1);
     // calcolo il movimento delle particelle nel tempo richiesto
-    start = clock();  
-    
-                                           //avvio il clock per calcolo del tempo di esecuzione
+    start = clock();
+
+    // avvio il clock per calcolo del tempo di esecuzione
     compute(maxTime, p1);
-    end = clock();                                             //fermo il clock per il calcolo del tempo di esecuzione
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC; //converto in secondi
-    //cpu_time_used = (end - start);                    //converto in clock time
-    printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used); 
+    end = clock();                                            // fermo il clock per il calcolo del tempo di esecuzione
+    cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC; // converto in secondi
+    // cpu_time_used = (end - start);                    //converto in clock time
+    printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used);
 
     printf("\n");
     printer(p1);

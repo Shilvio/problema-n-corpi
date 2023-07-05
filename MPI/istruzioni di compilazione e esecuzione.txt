@@ -1,6 +1,6 @@
 compilazione:
 
-mpicc -g -Wall -o "nome output" "file .c"
+mpicc -g -o "nome output" "file .c"
 
 esecuzione:
 

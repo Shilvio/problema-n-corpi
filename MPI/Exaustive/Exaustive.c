@@ -1,8 +1,9 @@
 #include <mpi.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-int numberBody, seed, maxTime = 1;
+int numberBody, seed, maxTime = 5;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11;
 // double const G = 1;
@@ -17,6 +18,7 @@ int myPoint;
 int bodyToRead;
 
 MPI_Datatype MPIParticle;
+
 typedef struct particle
 {
   double x;
@@ -28,13 +30,45 @@ typedef struct particle
   double velY;
 } particle;
 
-void calculateTotalForce(particle *p1)
+// calcola forze
+void calculateTotalForce(particle *p1, int j)
 {
-  for (int i = myPoint; i < myPoint + bodyToRead; i++)
+  for (int i = 0; i < numberBody; i++)
   {
-    // printf("id = %d body: %d end %d\n", id, i, myPoint + bodyToRead);
-    p1[i].mass = id;
+    if (i == j)
+    {
+      continue;
+    }
+    // calcolo delle forze
+    double xDiff = p1[j].x - p1[i].x;
+    double yDiff = p1[j].y - p1[i].y;
+    double dist = sqrt(xDiff * xDiff + yDiff * yDiff);
+    double cubeDist = dist * dist * dist;
+    p1[j].forceX -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * xDiff;
+    p1[j].forceY -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff;
+    // printf("\n%e",((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff);
+    // printf("\n px=%e py=%e fX=%e fY=%e \n",p1[j].x,p1[j].y,p1[j].forceX,p1[j].forceY);
+    // printf("px=%e py=%e \n",p1[i].x,p1[i].y);
   }
+}
+
+// calcola posizioni e velocità delleparticelle
+void calculatePosition(particle *p, int time)
+{
+  p->x += time * p->velX;
+  p->y += time * p->velY;
+  p->velX += time / p->mass * p->forceX;
+  p->velY += time / p->mass * p->forceY;
+}
+
+void printerFile(particle *p1)
+{
+  FILE *solution = fopen("solution.txt", "w");
+  for (int i = 0; i < numberBody; i++)
+  {
+    fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
+  }
+  fclose(solution);
 }
 
 void multiBrodcast(particle *p1)
@@ -89,6 +123,7 @@ FILE *initial()
   remainBodies = numberBody % nProcess;
   bodyToRead = bodyForProcess;
 
+  // trova il punto dell' array da passare per essere usato dal thread e ripartiziona le particelle in più
   myPoint = id * bodyForProcess;
   if (id < remainBodies)
   {
@@ -124,24 +159,40 @@ void printer(particle *p1)
 int main()
 {
 
+  // inizializza il programma MPI
   mpiStart();
 
+  // prende i dati dal file delle particelle
   FILE *file = initial();
 
+  // crea array particelle
   particle *p1 = malloc(sizeof(particle) * numberBody);
+
   if (id == 0)
   {
     getInput(file, p1);
   }
+
+  // broadcast dell' array di particelle a tutti i thread usati
   MPI_Bcast(p1, numberBody, MPIParticle, 0, MPI_COMM_WORLD);
 
   for (int i = 0; i < maxTime; i++)
   {
-    calculateTotalForce(p1);
+    for (int i = 0; i < bodyToRead; i++)
+      calculateTotalForce(p1, myPoint + i);
+
+    for (int i = 0; i < bodyToRead; i++)
+      calculatePosition(&p1[myPoint + i], deltaTime);
+
     multiBrodcast(p1);
   }
   if (id == 0)
+  {
     printer(p1);
-
+    printerFile(p1);
+  }
+  fclose(file);
+  free(p1);
+  // ferma il programma mpi server
   MPI_Finalize();
 }
