@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-int numberBody, seed, maxTime =50;
+int numberBody, seed, maxTime = 50;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 double const THETA = 2;       // thetha per il calcolo delle forze su particell 0.75
@@ -42,7 +42,7 @@ typedef struct massCenter
 
 typedef struct quadTree
 {
-    char id[100];         // index del nodo utile solo al debug
+    char id[100];        // index del nodo utile solo al debug
     double up;           // dimensione superiore del quadrante
     double down;         // dimensione inferiore del quadrante
     double left;         // dimensione sinistra del quadrante
@@ -361,12 +361,13 @@ void threeForce(quadTree *t, particle *p)
     // printf("id=%s",t->id);
     // printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
     double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));
-                                                                                bool c=false;
-                                                                                if(p->id==-1){
-                                                                                    c=true;
-                                                                                }
-                                                                                if(c)
-                                                                                printf("x: %e y: %e dist %e \n",t->mc->x,t->mc->y,dist);
+    bool c = false;
+    if (p->id == -1)
+    {
+        c = true;
+    }
+    if (c)
+        printf("x: %e y: %e dist %e \n", t->mc->x, t->mc->y, dist);
     if (dist == 0)
     {
         if (c)
@@ -494,7 +495,7 @@ void compute(particle *p1, int time)
             calculatePosition(&p1[i], deltaTime);
         }
         // printf("\ncalcolato lo spostamento\n\n");
-        // printerAlt(p1);
+        printerAlt(p1);
         destroyTree(c);
         // printer(c,0);
     }

@@ -56,6 +56,16 @@
   "C_Cpp_Runner.showCompilationTime": false,
   "C_Cpp_Runner.useLinkTimeOptimization": false,
   "files.associations": {
-    "ios": "c"
+    "ios": "c",
+    "__threading_support": "cpp",
+    "__hash_table": "c",
+    "__split_buffer": "c",
+    "array": "c",
+    "bitset": "c",
+    "initializer_list": "c",
+    "string": "c",
+    "string_view": "c",
+    "unordered_map": "c",
+    "vector": "c"
   }
 }
