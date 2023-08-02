@@ -569,7 +569,7 @@ void compute(particle *p1, int time)
     centerMass(c);
     // printf("\ncalcolato il centro di massa\n\n");
     // printer(c,0);
-    for (int i = 0; i < numberBody; i++)
+    for (int i = myPoint; i < myPoint + bodyToRead; i++)
     {
       // printf("\n");
 
@@ -580,8 +580,7 @@ void compute(particle *p1, int time)
       calculatePosition(&p1[i], deltaTime);
     }
     // printf("\ncalcolato lo spostamento\n\n");
-    if (id == 0)
-      printerAlt(p1);
+    multiBrodcast(p1);
     destroyTree(c);
     // printer(c,0);
   }
@@ -618,6 +617,8 @@ int main()
     // printer(p1);
     // printerFile(p1);
   }*/
+  if (id == 0)
+    printerAlt(p1);
   fclose(file);
   free(p1);
   // ferma il programma mpi server

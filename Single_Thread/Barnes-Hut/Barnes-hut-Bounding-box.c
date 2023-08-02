@@ -495,7 +495,7 @@ void compute(particle *p1, int time)
             calculatePosition(&p1[i], deltaTime);
         }
         // printf("\ncalcolato lo spostamento\n\n");
-        printerAlt(p1);
+        // printerAlt(p1);
         destroyTree(c);
         // printer(c,0);
     }
@@ -524,7 +524,7 @@ int main()
     end = clock();
     cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used);
-    // printerAlt(p1);       // stampo i risultati
+    printerAlt(p1); // stampo i risultati
     printf("teta %d", nteta);
     printerFile(p1);
     return 0;
