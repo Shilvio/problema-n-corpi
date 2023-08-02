@@ -618,7 +618,10 @@ int main()
     // printerFile(p1);
   }*/
   if (id == 0)
+  {
     printerAlt(p1);
+    printerFile(p1);
+  }
   fclose(file);
   free(p1);
   // ferma il programma mpi server
