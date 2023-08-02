@@ -4,43 +4,54 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-
+// numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 50;
 char fileInput[] = "../../Generate/particle.txt";
+// costante di gravitazione universale
 double const G = 6.67384E-11;
+// theta di approssimazione dell'algoritmo
 double const THETA = 2;
-// double const G = 1;
+// numero di unità di tempo per ogni iterazione
 double const deltaTime = 1;
 
-int nteta = 0;
-
+// numero processi
 int nProcess;
+// id processo
 int id;
 
+// dimensione bounding-box
 double up, down, left, right;
 
+// numero di corpi minimo per processo
 int bodyForProcess;
+// corpi rimanenti dopo la divisione intera dei corpi/processi
 int remainBodies;
+// punto in cui partono i body del processo
 int myPoint;
+// numero di corpi da leggere
 int bodyToRead;
 
+// funzioni min e max
 #define min(i, j) (((i) < (j)) ? (i) : (j))
 #define max(i, j) (((i) > (j)) ? (i) : (j))
 
+// struct particella in MPI
 MPI_Datatype MPIParticle;
 
+// struct particelle in c
 typedef struct particle
 {
-  int id;
-  double x;
-  double y;
-  double mass;
-  double forceX;
-  double forceY;
-  double velX;
-  double velY;
+  int id;        // id particella
+  double x;      // valore di x della particella
+  double y;      // valore di y della particella
+  double mass;   // massa della particella
+  double forceX; // forza sull'asse delle x
+  double forceY; // forza sull'asse delle y
+  double velX;   // velocità sull' asse delle x
+  double velY;   // velocità sull' asse delle y
 } particle;
 
+// struct centri di massa in c
 typedef struct massCenter
 {
   double x;    // poszione x del centro di massa
@@ -48,6 +59,7 @@ typedef struct massCenter
   double mass; // massa totale al centro di massa
 } massCenter;
 
+// struct dell' albero in c
 typedef struct quadTree
 {
   char id[100];        // index del nodo utile solo al debug
@@ -79,7 +91,6 @@ typedef struct quadTree
 // calcolo la bounding box delle particelle, applicando tecniche di riduzione gpu
 void boundingBox(particle *p1)
 {
-
   double up2 = p1[0].y, down2 = p1[0].y, left2 = p1[0].x, right2 = p1[0].x;
   // controllo se ho più thread che particelle
   if (id < numberBody)
@@ -98,18 +109,18 @@ void boundingBox(particle *p1)
     right2 += 1;
   }
 
-  // possibile barrier
   MPI_Allreduce(&up2, &up2, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD);
   MPI_Allreduce(&down2, &down2, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD);
   MPI_Allreduce(&right2, &right2, 1, MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD);
   MPI_Allreduce(&left2, &left2, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_WORLD);
 
-  // printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n", up, down, left, right);
   up = up2;
   down = down2;
   left = left2;
   right = right2;
 }
+
+// determina se la particella si trova all'interno dell'albero
 bool contains(quadTree *t, particle *p)
 {
 
@@ -125,7 +136,7 @@ struct quadTree *newNode(double up, double down, double left, double right, char
   quadTree *t = (quadTree *)malloc(sizeof(quadTree));
   if (t == NULL)
   {
-    // controllo di memori
+    // controllo di memoria
     printf("out of memory");
     exit(1);
   }
@@ -157,40 +168,39 @@ void divide(quadTree *t)
   {
     return;
   }
-  // printf("quand 1 %f %f %f\n",t->s/2, t->x + t->s/4, t->y + t->s/4,t->id,"1");
-  // printf("quand 2 %f %f %f\n",t->s/2, t->x + t->s/4, t->y - t->s/4,t->id,"2");
-  // printf("quand 3 %f %f %f\n",t->s/2, t->x - t->s/4, t->y - t->s/4,t->id,"3");
-  // printf("quand 4 %f %f %f\n",t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4");
+
+  // granzdezza orizzontale e verticale del settore
   double horizontalSize = (t->right - t->left) / 2;
   double verticalSize = (t->up - t->down) / 2;
 
+  // calcolo del centro del settore
   double horizontalCenter = horizontalSize + t->left;
   double verticalCenter = verticalSize + t->down;
 
   horizontalSize /= 2;
   verticalSize /= 2;
 
+  // divisione del settore in 4 nodi
   t->ne = newNode(t->up, verticalCenter, horizontalCenter, t->right, t->id, "1");
   t->se = newNode(verticalCenter, t->down, horizontalCenter, t->right, t->id, "2");
   t->sw = newNode(verticalCenter, t->down, t->left, horizontalCenter, t->id, "3");
   t->nw = newNode(t->up, verticalCenter, t->left, horizontalCenter, t->id, "4");
-  t->div = true; // assegno true al flag di divisione
+  // assegno true al flag di divisione
+  t->div = true;
   return;
 }
 
 // funzione che inserisce le particelle in un determinato quadrante (max 1 per quadrante)
 void insert(particle *p, quadTree *t)
 {
-  // printf("%d\n",count-1);
+
   if (!contains(t, p))
   {
-    // printf("uscito\n");
     return;
   }
   if (t->p == NULL)
   {
     t->p = p;
-    // printf("no particle in quadrant");
     return;
   }
 
@@ -218,7 +228,7 @@ void buildquadTree(particle *p1, quadTree *t)
   {
     if (contains(t, &p1[i]))
     {
-      printf("out rangeparticle\n");
+      printf("Out rangeparticle\n");
       exit(1);
     }
     insert(&p1[i], t);
@@ -300,6 +310,7 @@ void printerAlt(particle *p1)
   }
 }
 
+// funzione che stampa i risultati su file
 void printerFile(particle *p1)
 {
   FILE *solution = fopen("solution.txt", "w");
@@ -310,8 +321,10 @@ void printerFile(particle *p1)
   fclose(solution);
 }
 
+// funzione MPI per il brodcast dei risultati post iterazione
 void multiBrodcast(particle *p1)
 {
+  // definisce le posizioni dei corpi rispettiva al numero di processi
   int count = 0;
   for (int i = 0; i < nProcess; i++)
   {
@@ -328,42 +341,37 @@ void multiBrodcast(particle *p1)
   }
 }
 
+// caricamento dei dati da file di input
 void getInput(FILE *file, particle *p1)
 {
-  // prendo i dati per tutti i corpi
   for (int i = 0; i < numberBody; i++)
   {
-    // prendo i dati dal file
     fscanf(file, "%lf%lf%lf%lf%lf", &p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY);
-    // imposto le forze iniziali a zero
+    // imposta le forze iniziali a zero
     p1[i].forceX = 0;
     p1[i].forceY = 0;
     p1[i].id = i;
-    // printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
   }
-  // chiudo il file
+  // chiude il file
   fclose(file);
 }
 
+// apertura file
 FILE *initial()
 {
-  // mi apro il file in lettura
   FILE *file = fopen(fileInput, "r");
   // prendo il seed
   fscanf(file, "%d", &seed);
-  if (id == 0)
-    printf("%d\n", seed);
   // prendo il numero di corpi
   fscanf(file, "%d", &numberBody);
-  if (id == 0)
-    printf("%d\n", numberBody);
 
   // setup for MPI
   bodyForProcess = numberBody / nProcess;
   remainBodies = numberBody % nProcess;
   bodyToRead = bodyForProcess;
 
-  // trova il punto dell' array da passare per essere usato dal thread e ripartiziona le particelle in più
+  // trova il punto dell' array da passare
+  // per essere usato dal thread e ripartiziona le particelle in più
   myPoint = id * bodyForProcess;
   if (id < remainBodies)
   {
@@ -378,6 +386,7 @@ FILE *initial()
   return file;
 }
 
+// setup per MPI, creazione del comunicatore
 void mpiStart()
 {
   MPI_Init(NULL, NULL);
@@ -388,56 +397,45 @@ void mpiStart()
   MPI_Type_commit(&MPIParticle);
 }
 
-void printer2(particle *p1)
-{
-  for (int i = 0; i < numberBody; i++)
-  {
-    printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
-  }
-}
-
+// calcolo del centro di massa
 massCenter *centerMass(quadTree *c)
 {
   massCenter *mc = malloc(sizeof(massCenter));
   if (!c->div)
-  { // se non è stato diviso
+  { // condizione  " se il quadrante non è stato diviso"
     if (c->p == NULL)
-    { // se la particella non c'e
+    { // condizione "se il quadante è privo di particelle"
       mc->x = 0;
       mc->y = 0;
       mc->mass = 0;
     }
     else
-    {                  // se c'è una particella
-      mc->x = c->p->x; // allora la massa e il centro di massa sono la posizione e la massa della particella stessa
+    {
+      // la posizione e la massa del centro di massa sono
+      // la posizione e la massa della particella stessa
+      mc->x = c->p->x;
       mc->y = c->p->y;
       mc->mass = c->p->mass;
     }
 
     c->mc = mc;
-    // printf("id=%s\n",c->id);
-    // printf("id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
-    // printf(" pX %e pY %e mass %e\n",c->p->x,c->p->y,c->p->mass);
+
     return mc;
   }
-  // altrimenti per tutti i 4 figli
+  // per tutti i 4 figli
   massCenter *ne = centerMass(c->ne); // calcolo centro di massa alla radice del quadrante nord est (1)
   massCenter *se = centerMass(c->se); // calcolo centro di massa alla radice del quadrante sud est (2)
   massCenter *sw = centerMass(c->sw); // calcolo centro di massa alla radice del quadrante sud ovest (3)
-  massCenter *nw = centerMass(c->nw); // calcolo centro di massa alla radice del quadrante  ord ovest (4)
+  massCenter *nw = centerMass(c->nw); // calcolo centro di massa alla radice del quadrante nord ovest (4)
   // la massa di un nodo è la somma delle masse dei
   // figli = mass(1) + mass(2) + mass(3) + mass(4)
   mc->mass = ne->mass + se->mass + sw->mass + nw->mass;
-  // il centro di massa di un nodo è la somma pesata dei centri di massa dei
+  // il centro di massa di un nodo è la somma pesata dei centri di massa dei centri di massa dei figli
   // poizione = (mass(1)*cm(1) + mass(2)*cm(2) + mass(3)*cm(3) + mass(4)*cm(4)) / mass
   mc->x = (ne->mass * ne->x + nw->mass * nw->x + se->mass * se->x + sw->mass * sw->x) / mc->mass;
   mc->y = (ne->mass * ne->y + nw->mass * nw->y + se->mass * se->y + sw->mass * sw->y) / mc->mass;
 
-  // printf("cell x %e, y %e, mass %e\n",mc->x,mc->y,mc->mass);
-
   c->mc = mc;
-  // printf("id=%s\n",c->id);
-  // printf("mod id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
 
   return mc;
 }
@@ -445,65 +443,43 @@ massCenter *centerMass(quadTree *c)
 // funzione per applicare le forze alle particelle
 void threeForce(quadTree *t, particle *p)
 {
-  // printf("id=%s",t->id);
-  // printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
+  // distanza tra il cenro di massa e la particella
   double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));
-  bool c = false;
-  if (p->id == -1)
-  {
-    c = false;
-  }
-  if (c)
-    printf("x: %e y: %e dist %e \n", t->mc->x, t->mc->y, dist);
+
   if (dist == 0)
   {
-    if (c)
-      printf("back0\n");
     return;
   }
+
   if (!t->div) // se non e diviso
   {
     if (t->p != NULL) // se c'è una sola particella
     {
-      // printf("size: %e\n", (t->right-t->left) );
       double xDiff = p->x - t->mc->x;                                // calcolo la distanza tra la particella 1 e la 2
       double yDiff = p->y - t->mc->y;                                // (il centro di massa del nodo = particella)
       double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
       p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
       p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-      if (c)
-        printf("back cell\n");
-      // printf("dist:%e mass: %e xdif: %e \n",p->mass, t->mc->mass, t->mc->y);
-      // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * xDiff);
-      // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
-      // printf("x=%e y=%e px=%e py=%e\n",t->mc->x,t->mc->y,p->x,p->velY);
     }
     return;
   }
-
-  if ((t->right - t->left) / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
+  // uso il theta come filtro per decidere la scala di approssimazione
+  if ((t->right - t->left) / dist < THETA)
   {
     double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
     double yDiff = p->y - t->mc->y;
     double cubeDist = dist * dist * dist;
     p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
     p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-    nteta++;
-    // printf("ciao\n");
-    if (c)
-      printf("back\n");
     return;
   }
-  /*threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
-  threeForce(t->se, p);
-  threeForce(t->sw, p);
-  threeForce(t->nw, p);*/
   threeForce(t->se, p); // applico la stessa funzione attraverso figli del nodo
   threeForce(t->ne, p);
   threeForce(t->sw, p);
   threeForce(t->nw, p);
   return;
 }
+
 // funzione che calcola la nuova posizione e la nuova velocità della particella
 void calculatePosition(particle *p, int time)
 {
@@ -512,8 +488,9 @@ void calculatePosition(particle *p, int time)
   p->velX += time / p->mass * p->forceX;
   p->velY += time / p->mass * p->forceY;
 }
+
 // funzione per distruggere l' albero a ogni iterazione dell' algoritmo
-// scandaglio l' albero e libero mano mano la memoria
+// scandaglio l' albero e liberando mano mano la memoria
 void destroyTree(quadTree *c)
 {
   if (!c->div)
@@ -529,6 +506,7 @@ void destroyTree(quadTree *c)
   return;
 }
 
+// definisco il quadrante iniziale
 void initialQuad(quadTree *c)
 {
   c->up = up;
@@ -546,49 +524,41 @@ void initialQuad(quadTree *c)
   c->mc = NULL;
 }
 
+// esecuzione dell'algoritmo
 void compute(particle *p1, int time)
 {
 
   for (int j = 0; j < time; j++)
   {
 
-    // printf("%d\n", j);
-
+    // calcolo bounding-box e creazione del quadrante iniziale
     boundingBox(p1);
     quadTree *c = (quadTree *)malloc(sizeof(quadTree));
-
     initialQuad(c);
+
+    // inserimento delle particelle nei quadtranti e calcolo dei rispettivi centri di massa
     for (int i = 0; i < numberBody; i++)
     {
-      // printf("%d number=%d x=%e y=%e \n",count,i,p1[i].x,p1[i].y);
-      // count++;
       insert(&p1[i], c);
     }
-    // printer(c,0);
-    // printf("next\n\n");
     centerMass(c);
-    // printf("\ncalcolato il centro di massa\n\n");
-    // printer(c,0);
+
+    // calcolo delle forze e posizioni in multi-thread dei corpi assegnayi
     for (int i = myPoint; i < myPoint + bodyToRead; i++)
     {
-      // printf("\n");
-
       threeForce(c, &p1[i]);
-
-      // printf("body %d, X %e, Y %e\n",i,p1[i].forceX,p1[i].forceY);
-
       calculatePosition(&p1[i], deltaTime);
     }
-    // printf("\ncalcolato lo spostamento\n\n");
+
+    // condivisione dei risultati per successiva iterazione
     multiBrodcast(p1);
+    // liberazione memoria a fine iterazione
     destroyTree(c);
-    // printer(c,0);
   }
 }
 
 int main()
 {
-
   // inizializza il programma MPI
   mpiStart();
 
@@ -598,32 +568,27 @@ int main()
   // crea array particelle
   particle *p1 = malloc(sizeof(particle) * numberBody);
 
+  // presa dei dati di input
   if (id == 0)
   {
     getInput(file, p1);
   }
 
-  // broadcast dell' array di particelle a tutti i thread usati
+  // broadcast dell' array di particelle a tutti i processi usati
   MPI_Bcast(p1, numberBody, MPIParticle, 0, MPI_COMM_WORLD);
 
+  // esecuzione dell'algoritmo
   compute(p1, maxTime);
 
-  /*boundingBox(p1);
-  printf("\n\nBounding box: up: %e,down: %e,left: %e,right: %e\n\n", up[0], down[1], left[2], right[3]);
-  createTree();
-  // calculateCenterMass();
+  // stampa dei risultati da processo 0
   if (id == 0)
   {
-    // printer(p1);
-    // printerFile(p1);
-  }*/
-  if (id == 0)
-  {
-    printerAlt(p1);
+    // printerAlt(p1); // stampa su terminale
     printerFile(p1);
   }
   fclose(file);
   free(p1);
-  // ferma il programma mpi server
+
+  // ferma il programma mpi
   MPI_Finalize();
 }
