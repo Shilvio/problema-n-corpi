@@ -88,7 +88,6 @@ void boundingBox(particle *p1)
     left -= 1;
     up += 1;
     down -= 1;
-    printf("\nBounding box: up: %e,down: %e,left: %e,right: %e\n", up, down, left, right);
 }
 
 // funzione che analizza la presenza della particella in un dato quadrante
@@ -362,7 +361,6 @@ void threeForce(quadTree *t, particle *p)
     {
         if (t->p != NULL) // se c'è una sola particella
         {
-            // printf("size: %e\n", (t->right-t->left) );
             double xDiff = p->x - t->mc->x;                                // calcolo la distanza tra la particella 1 e la 2
             double yDiff = p->y - t->mc->y;                                // (il centro di massa del nodo = particella)
             double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
