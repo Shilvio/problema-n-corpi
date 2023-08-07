@@ -4,26 +4,24 @@
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
-
+// numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 50;
 char fileInput[] = "../../Generate/particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 double const THETA = 2;       // thetha per il calcolo delle forze su particell 0.75
-double maxSize;
+// dimensione bounding-box
 double up, down, left, right;
+// numero di unità di tempo per ogni iterazione
 int deltaTime = 1;
 
-int nteta = 0;
-
+// funzioni min e max
 #define min(i, j) (((i) < (j)) ? (i) : (j))
 #define max(i, j) (((i) > (j)) ? (i) : (j))
-
-// int count = 0;
 
 // struct particella
 typedef struct particle
 {
-    int id;
+    int id;        // identificatore particella
     double x;      // posizione x
     double y;      // posizione y
     double mass;   // massa
@@ -33,6 +31,7 @@ typedef struct particle
     double velY;   // velocità sull' asse y
 } particle;
 
+// struct dei centri di massa
 typedef struct massCenter
 {
     double x;    // poszione x del centro di massa
@@ -40,6 +39,7 @@ typedef struct massCenter
     double mass; // massa totale al centro di massa
 } massCenter;
 
+// struct del quadrante
 typedef struct quadTree
 {
     char id[100];        // index del nodo utile solo al debug
@@ -68,6 +68,7 @@ typedef struct quadTree
 
 } quadTree;
 
+// calcolo della bounding box
 void boundingBox(particle *p1)
 {
     up = p1[0].y;
@@ -138,19 +139,19 @@ void divide(quadTree *t)
     {
         return;
     }
-    // printf("quand 1 %f %f %f\n",t->s/2, t->x + t->s/4, t->y + t->s/4,t->id,"1");
-    // printf("quand 2 %f %f %f\n",t->s/2, t->x + t->s/4, t->y - t->s/4,t->id,"2");
-    // printf("quand 3 %f %f %f\n",t->s/2, t->x - t->s/4, t->y - t->s/4,t->id,"3");
-    // printf("quand 4 %f %f %f\n",t->s/2, t->x - t->s/4, t->y + t->s/4,t->id,"4");
+
+    // granzdezza orizzontale e verticale del settore
     double horizontalSize = (t->right - t->left) / 2;
     double verticalSize = (t->up - t->down) / 2;
 
+    // calcolo del centro del settore
     double horizontalCenter = horizontalSize + t->left;
     double verticalCenter = verticalSize + t->down;
 
     horizontalSize /= 2;
     verticalSize /= 2;
 
+    // divisione del settore in 4 nodi
     t->ne = newNode(t->up, verticalCenter, horizontalCenter, t->right, t->id, "1");
     t->se = newNode(verticalCenter, t->down, horizontalCenter, t->right, t->id, "2");
     t->sw = newNode(verticalCenter, t->down, t->left, horizontalCenter, t->id, "3");
@@ -162,16 +163,14 @@ void divide(quadTree *t)
 // funzione che inserisce le particelle in un determinato quadrante (max 1 per quadrante)
 void insert(particle *p, quadTree *t)
 {
-    // printf("%d\n",count-1);
+    
     if (!contains(t, p))
     {
-        // printf("uscito\n");
         return;
     }
     if (t->p == NULL)
     {
         t->p = p;
-        // printf("no particle in quadrant");
         return;
     }
 
@@ -287,10 +286,10 @@ void getInput(FILE *file, particle *p1)
     for (int i = 0; i < numberBody; i++)
     {                                                                                               // prendo i dati per tutti i corpi
         fscanf(file, "%lf%lf%lf%lf%lf", &p1[i].x, &p1[i].y, &p1[i].mass, &p1[i].velX, &p1[i].velY); // prendo i dati dal file
+        // imposta le forze iniziali a zero
         p1[i].forceX = 0;                                                                           // imposto le forze iniziali a zero
         p1[i].forceY = 0;
         p1[i].id = i;
-        // printf("particle id %d, xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n",p1[i].id, p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     fclose(file); // chiudo il file
 }
@@ -302,10 +301,8 @@ FILE *initial()
     FILE *file = fopen(fileInput, "r");
     // prendo il seed
     fscanf(file, "%d", &seed);
-    printf("%d\n", seed);
     // prendo il numero di corpi
     fscanf(file, "%d", &numberBody);
-    printf("%d\n", numberBody);
     return file;
 }
 // calcolo il centro di massa e la massa totale per le particelle in ogni sottoquadrato
@@ -313,24 +310,24 @@ massCenter *centerMass(quadTree *c)
 {
     massCenter *mc = malloc(sizeof(massCenter));
     if (!c->div)
-    { // se non è stato diviso
+    { // condizione  " se il quadrante non è stato diviso"
         if (c->p == NULL)
-        { // se la particella non c'e
+        { // condizione "se il quadante è privo di particelle"
             mc->x = 0;
             mc->y = 0;
             mc->mass = 0;
         }
         else
-        {                    // se c'è una particella
-            mc->x = c->p->x; // allora la massa e il centro di massa sono la posizione e la massa della particella stessa
+        {        
+            // la posizione e la massa del centro di massa sono
+            // la posizione e la massa della particella stessa
+            mc->x = c->p->x; 
             mc->y = c->p->y;
             mc->mass = c->p->mass;
         }
 
         c->mc = mc;
-        // printf("id=%s\n",c->id);
-        // printf("id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
-        // printf(" pX %e pY %e mass %e\n",c->p->x,c->p->y,c->p->mass);
+        
         return mc;
     }
     // altrimenti per tutti i 4 figli
@@ -346,32 +343,19 @@ massCenter *centerMass(quadTree *c)
     mc->x = (ne->mass * ne->x + nw->mass * nw->x + se->mass * se->x + sw->mass * sw->x) / mc->mass;
     mc->y = (ne->mass * ne->y + nw->mass * nw->y + se->mass * se->y + sw->mass * sw->y) / mc->mass;
 
-    // printf("cell x %e, y %e, mass %e\n",mc->x,mc->y,mc->mass);
-
     c->mc = mc;
-    // printf("id=%s\n",c->id);
-    // printf("mod id=%s cm(x= %e, y= %e, mass= %e)\n",c->id,c->mc->x,c->mc->y,c->mc->mass);
-
+    
     return mc;
 }
 
 // funzione per applicare le forze alle particelle
 void threeForce(quadTree *t, particle *p)
 {
-    // printf("id=%s",t->id);
-    // printf(" cmX=%f cmY=%f\n",t->mc->x,t->mc->y);
-    double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));
-    bool c = false;
-    if (p->id == -1)
-    {
-        c = true;
-    }
-    if (c)
-        printf("x: %e y: %e dist %e \n", t->mc->x, t->mc->y, dist);
+    // distanza tra il cenro di massa e la particella
+    double dist = sqrt(pow(p->x - t->mc->x, 2) + pow(p->y - t->mc->y, 2));    
+    
     if (dist == 0)
     {
-        if (c)
-            printf("back0\n");
         return;
     }
     if (!t->div) // se non e diviso
@@ -384,16 +368,11 @@ void threeForce(quadTree *t, particle *p)
             double cubeDist = dist * dist * dist;                          // elevo al cubo la distanza e applico la formula di newton
             p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff; // per il calcolo della forza sui 2 assi
             p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-            if (c)
-                printf("back cell\n");
-            // printf("dist:%e mass: %e xdif: %e \n",p->mass, t->mc->mass, t->mc->y);
-            // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * xDiff);
-            // printf("%e\n",((G * p->mass * t->mc->mass) / cubeDist) * yDiff);
-            // printf("x=%e y=%e px=%e py=%e\n",t->mc->x,t->mc->y,p->x,p->velY);
+            
         }
         return;
     }
-
+    // uso il theta come filtro per decidere la scala di approssimazione
     if ((t->right - t->left) / dist < THETA) // uso il theta come filtro per decidere la scala di approssimazione
     {
         double xDiff = p->x - t->mc->x; // calcolo le forze come espresso sopra
@@ -401,16 +380,9 @@ void threeForce(quadTree *t, particle *p)
         double cubeDist = dist * dist * dist;
         p->forceX -= ((G * p->mass * t->mc->mass) / cubeDist) * xDiff;
         p->forceY -= ((G * p->mass * t->mc->mass) / cubeDist) * yDiff;
-        nteta++;
-        // printf("ciao\n");
-        if (c)
-            printf("back\n");
+        
         return;
     }
-    /*threeForce(t->ne, p); // applico la stessa funzione attraverso figli del nodo
-    threeForce(t->se, p);
-    threeForce(t->sw, p);
-    threeForce(t->nw, p);*/
     threeForce(t->se, p); // applico la stessa funzione attraverso figli del nodo
     threeForce(t->ne, p);
     threeForce(t->sw, p);
@@ -466,41 +438,30 @@ void compute(particle *p1, int time)
 
     for (int j = 0; j < time; j++)
     {
-
-        printf("%d\n", j);
-
+        // calcolo bounding-box e creazione del quadrante iniziale
         boundingBox(p1);
         quadTree *c = (quadTree *)malloc(sizeof(quadTree));
 
         initialQuad(c);
+        // inserimento delle particelle nei quadtranti e calcolo dei rispettivi centri di massa
         for (int i = 0; i < numberBody; i++)
         {
-            // printf("%d number=%d x=%e y=%e \n",count,i,p1[i].x,p1[i].y);
-            // count++;
             insert(&p1[i], c);
         }
-        // printer(c,0);
-        // printf("next\n\n");
         centerMass(c);
-        // printf("\ncalcolato il centro di massa\n\n");
-        // printer(c,0);
+        
+        // calcolo delle forze e posizioni in multi-thread dei corpi assegnayi
         for (int i = 0; i < numberBody; i++)
         {
-            // printf("\n");
-
             threeForce(c, &p1[i]);
-
-            // printf("body %d, X %e, Y %e\n",i,p1[i].forceX,p1[i].forceY);
-
             calculatePosition(&p1[i], deltaTime);
         }
-        // printf("\ncalcolato lo spostamento\n\n");
-        // printerAlt(p1);
+        // liberazione memoria a fine iterazione
         destroyTree(c);
-        // printer(c,0);
     }
 }
 
+// funzione che stampa i risultati su file
 void printerFile(particle *p1)
 {
     FILE *solution = fopen("solution.txt", "w");
@@ -518,14 +479,13 @@ int main()
     FILE *file = initial();                               // apro il file
     particle *p1 = malloc(sizeof(particle) * numberBody); // alloco la memoria per l'array che conterrà tutte le particelle (p1)
     getInput(file, p1);                                   // lancio lo script per recuperare le particelle
-    printf("\n");
+
     start = clock();
     compute(p1, maxTime); // applico la funzione compute per gestire il programma
     end = clock();
     cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used);
-    printerAlt(p1); // stampo i risultati
-    printf("teta %d", nteta);
+    //printerAlt(p1); // stampo i risultati su terminale
     printerFile(p1);
     return 0;
 }

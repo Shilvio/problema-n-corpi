@@ -2,24 +2,24 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
-
-// variabili per il calcolo del tempo di esecuzione
-
+// numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 5;
 char fileInput[] = "../../Generate/particle.txt";
+// costante gravitazione universale
 double const G = 6.67384E-11;
-// double const G = 1;
+// numero di unità di tempo per ogni iterazione
 double const deltaTime = 1;
 
+// struct particelle
 typedef struct particle
 {
-    double x;
-    double y;
-    double mass;
-    double forceX;
-    double forceY;
-    double velX;
-    double velY;
+    double x;      // valore di x della particella
+    double y;      // valore di y della particella
+    double mass;   // massa della particella
+    double forceX; // forza sull'asse delle x
+    double forceY; // forza sull'asse delle y
+    double velX;   // velocità sull' asse delle x
+    double velY;   // velocità sull' asse delle y
 } particle;
 
 // calcolo del cambio della posizione per una particella di interesse per un dato intervallo di tempo e velocità
@@ -48,12 +48,10 @@ void calculateTotalForce(particle *p1, int j)
         double cubeDist = dist * dist * dist;
         p1[j].forceX -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * xDiff;
         p1[j].forceY -= ((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff;
-        // printf("\n%e",((G * p1[j].mass * p1[i].mass) / cubeDist) * yDiff);
-        // printf("\n px=%e py=%e fX=%e fY=%e \n",p1[j].x,p1[j].y,p1[j].forceX,p1[j].forceY);
-        // printf("px=%e py=%e \n",p1[i].x,p1[i].y);
     }
 }
 
+// funzione che stampa i risultati su file
 void printerFile(particle *p1)
 {
     FILE *solution = fopen("solution.txt", "w");
@@ -64,6 +62,7 @@ void printerFile(particle *p1)
     fclose(solution);
 }
 
+// funzione che stampa i dati dell' array di particelle
 void printer(particle *p1)
 {
     for (int i = 0; i < numberBody; i++)
@@ -104,7 +103,6 @@ void getInput(FILE *file, particle *p1)
         // imposto le forze iniziali a zero
         p1[i].forceX = 0;
         p1[i].forceY = 0;
-        // printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
     }
     // chiudo il file
     fclose(file);
@@ -117,10 +115,8 @@ FILE *initial()
     FILE *file = fopen(fileInput, "r");
     // prendo il seed
     fscanf(file, "%d", &seed);
-    printf("%d\n", seed);
     // prendo il numero di corpi
     fscanf(file, "%d", &numberBody);
-    printf("%d\n", numberBody);
     return file;
 }
 
@@ -144,8 +140,7 @@ int main()
     // cpu_time_used = (end - start);                    //converto in clock time
     printf("\nla funzione ha richiesto: %e secondi\n", cpu_time_used);
 
-    printf("\n");
-    printer(p1);
+    //printer(p1); // print per debug
 
     printerFile(p1);
 

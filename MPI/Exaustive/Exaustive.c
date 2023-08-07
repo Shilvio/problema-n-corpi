@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+// numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 5;
 char fileInput[] = "../../Generate/particle.txt";
 // costante di gravitazione universale
