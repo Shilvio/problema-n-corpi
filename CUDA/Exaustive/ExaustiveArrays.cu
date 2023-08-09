@@ -3,131 +3,134 @@
 #include <stdlib.h>
 #include <math.h>
 
+// numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 3;
 char fileInput[] = "../../Generate/particle.txt";
+// costante gravitazione universale
 __constant__ double G = 6.67384E-11;
-double *x, *y, *m, *velX, *velY, *forceX, *forceY;
-/*
-__global__ void test(double* xStart,double* yStart,double* mStart,double* velXStart,double* velYStart,double* forceXStart,double* forceYStart,double* xEnd,double* yEnd,double* mEnd,double* velXEnd,double* velYEnd,double* forceXEnd,double* forceYEnd,int tot){
-    printf("ciao test\n");
-}*/
 
-int statGPU() {
+// puntatori ad array di parametri delle particelle
+double *x, *y, *m, *velX, *velY, *forceX, *forceY;
+
+// check presenza gpu e assegnazione thread massimi per blocco
+int statGPU()
+{
     int numberGPU;
     cudaGetDeviceCount(&numberGPU);
-    if(numberGPU<1){
+    if (numberGPU < 1)
+    {
         printf("non sono state rilevate GPU adeguate per esegiure il programma");
         exit(1);
     }
     cudaDeviceProp pr;
-    cudaGetDeviceProperties(&pr,0);//thread per blocco 877
-    int f = pr.sharedMemPerBlock/(sizeof(double)*3); //massima dim memoria per blocco/grandezza struct particella 
-    //f sono i thread per blocco massimi
-    //printf("\n%d\n",f);
-    if(f > pr.maxThreadsPerBlock){
-        f=pr.maxThreadsPerBlock;
+    cudaGetDeviceProperties(&pr, 0);
+    int f = pr.sharedMemPerBlock / (sizeof(double) * 3);
+    /* f = massima dim memoria per blocco/grandezza struct particella
+    f sono i thread per blocco massimi calcolati */
+    if (f > pr.maxThreadsPerBlock)
+    {
+        f = pr.maxThreadsPerBlock;
     }
-    if(pr.maxThreadsPerMultiProcessor%f){
-        int h=pr.maxThreadsPerMultiProcessor;
-        while (h>f)
+
+    if (pr.maxThreadsPerMultiProcessor % f)
+    {
+        int h = pr.maxThreadsPerMultiProcessor;
+        while (h > f)
         {
-            h=h/2;
+            h = h / 2;
         }
-        
-        f=h;
+
+        f = h;
     }
-    printf("\n%d\n",f);
     return f;
 }
-/*
-__device__ void printerKer(particle *p1, int numberBody)
-{
-    for (int i = 0; i < numberBody; i++)
-    {
-        printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
-    }
-}
-*/
-// calcolo del cambio della posizione per una particella di interesse per un dato intervallo di tempo e velocità
-__device__ void calculatePosition(double xMe,double yMe,double mMe,double velXMe,double velYMe,double forceXMe,double forceYMe, int time,int ID, double* xEnd,double* yEnd,double* velXEnd,double* velYEnd,double* forceXEnd,double* forceYEnd)
+
+// calcolo della posizione per una particella di interesse per un dato intervallo di tempo e velocità
+__device__ void calculatePosition(double xMe, double yMe, double mMe, double velXMe, double velYMe, double forceXMe, double forceYMe, int time, int ID, double *xEnd, double *yEnd, double *velXEnd, double *velYEnd, double *forceXEnd, double *forceYEnd)
 {
     xMe += time * velXMe;
     yMe += time * velYMe;
     velXMe += time / mMe * forceXMe;
     velYMe += time / mMe * forceYMe;
 
-    xEnd[ID]=xMe;
-    yEnd[ID]=yMe;
-    velXEnd[ID]=velXMe;
-    velYEnd[ID]=velYMe;
-    forceXEnd[ID]=forceXMe;
-    forceYEnd[ID]=forceYMe;
+    xEnd[ID] = xMe;
+    yEnd[ID] = yMe;
+    velXEnd[ID] = velXMe;
+    velYEnd[ID] = velYMe;
+    forceXEnd[ID] = forceXMe;
+    forceYEnd[ID] = forceYMe;
 }
 
-// calcolo tutte le forze relative ad una particella di interesse
-__global__ void calculateTotalForce(double* xStart,double* yStart,double* mStart,double* velXStart,double* velYStart,double* forceXStart,double* forceYStart,double* xEnd,double* yEnd,double* velXEnd,double* velYEnd,double* forceXEnd,double* forceYEnd,int tot)
+// calcolo tutte le forze relative ad una particella di interesse in un intervallo
+__global__ void calculateTotalForce(double *xStart, double *yStart, double *mStart, double *velXStart, double *velYStart, double *forceXStart, double *forceYStart, double *xEnd, double *yEnd, double *velXEnd, double *velYEnd, double *forceXEnd, double *forceYEnd, int tot)
 {
-    
-    int sizeMAx=blockDim.x;
-    extern __shared__ double temp[];
-    int tId=blockIdx.x*blockDim.x+threadIdx.x;
-    int ID=threadIdx.x;
 
-    if(tId>=tot){
+    int sizeMAx = blockDim.x;
+    extern __shared__ double temp[];
+    int tId = blockIdx.x * blockDim.x + threadIdx.x;
+    int ID = threadIdx.x;
+
+    // prendo le variabili della particella dall' array iniziale
+    if (tId >= tot)
+    {
         return;
     }
-    double xMe=xStart[tId];
-    double yMe=yStart[tId];
-    double mMe=mStart[tId];
-    double velXMe=velXStart[tId];
-    double velYMe=velYStart[tId];
-    double forceXMe=forceXStart[tId];
-    double forceYMe=forceYStart[tId];
-    
-    for(int i=0;i<(tot/sizeMAx)+1;i++){//da scalare (+1)
-        if(i*sizeMAx+ID<tot){
-            temp[ID]=xStart[i*sizeMAx+ID];
-            temp[sizeMAx+ID]=yStart[i*sizeMAx+ID];
-            temp[sizeMAx+sizeMAx+ID]=mStart[i*sizeMAx+ID];
+    double xMe = xStart[tId];
+    double yMe = yStart[tId];
+    double mMe = mStart[tId];
+    double velXMe = velXStart[tId];
+    double velYMe = velYStart[tId];
+    double forceXMe = forceXStart[tId];
+    double forceYMe = forceYStart[tId];
+
+    // seleziono i blocchi di particelle e itero per esse e calcolo le forze per un unità di tempo
+    for (int i = 0; i < (tot / sizeMAx) + 1; i++)
+    {
+        // carico in temp la mia particella del blocco
+        if (i * sizeMAx + ID < tot)
+        {
+            temp[ID] = xStart[i * sizeMAx + ID];
+            temp[sizeMAx + ID] = yStart[i * sizeMAx + ID];
+            temp[sizeMAx + sizeMAx + ID] = mStart[i * sizeMAx + ID];
         }
         __syncthreads();
-        for (int j = 0; j < sizeMAx; j++)//da scalare
+        // calcolo le forze utilizzando le sole particelle presenti in temp
+        for (int j = 0; j < sizeMAx; j++)
         {
-            if (tId == i*sizeMAx+j)
+            // salto il calcolo con la stessa particella
+            if (tId == i * sizeMAx + j)
             {
                 continue;
             }
-            //aggiunto 
-            if(i*sizeMAx+j>=tot){
+            if (i * sizeMAx + j >= tot)
+            {
                 break;
             }
+
             // calcolo delle forze
             double xDiff = xMe - temp[j];
-            double yDiff = yMe - temp[sizeMAx+j];
+            double yDiff = yMe - temp[sizeMAx + j];
             double dist = sqrt(xDiff * xDiff + yDiff * yDiff);
             double cubeDist = dist * dist * dist;
-            forceXMe -= ((G * mMe * temp[sizeMAx+sizeMAx+j]) / cubeDist) * xDiff;
-            forceYMe -= ((G * mMe * temp[sizeMAx+sizeMAx+j]) / cubeDist) * yDiff;
-            //printf("%e\n",mStart[i*sizeMAx+ID]);
-                                                                                            //printf("%d con %d\n",tId,i*sizeMAx+j);
-                                                                                            //printf("\n%e",((G * me.mass * temp[i].mass) / cubeDist) * yDiff);
-                                                                                            //printf("\n px=%e py=%e fX=%e fY=%e \n",me.x,me.y,me.forceX,me.forceY);
-                                                                                            //printf("px=%e py=%e \n",temp[i].x,temp[i].y);
+            forceXMe -= ((G * mMe * temp[sizeMAx + sizeMAx + j]) / cubeDist) * xDiff;
+            forceYMe -= ((G * mMe * temp[sizeMAx + sizeMAx + j]) / cubeDist) * yDiff;
         }
         __syncthreads();
     }
-    
-    calculatePosition(xMe,yMe,mMe,velXMe,velYMe,forceXMe,forceYMe, 1,tId,xEnd,yEnd,velXEnd,velYEnd,forceXEnd,forceYEnd);
+    // calcolo la posizione per un unità di tempo
+    calculatePosition(xMe, yMe, mMe, velXMe, velYMe, forceXMe, forceYMe, 1, tId, xEnd, yEnd, velXEnd, velYEnd, forceXEnd, forceYEnd);
 }
-// calcolo il movimento delle particelle nel tempo richiesto
+
+// funzione usata per inizializzare il programma e avviare i calcoli per tutte le unità di tempo
 void compute(int time)
 {
-    int thread=statGPU();
-    int block=(numberBody/thread)+1;
-    
+    int thread = statGPU();
+    int block = (numberBody / thread) + 1;
+
     double *xStart, *yStart, *mStart, *velXStart, *velYStart, *forceXStart, *forceYStart;
     double *xEnd, *yEnd, *velXEnd, *velYEnd, *forceXEnd, *forceYEnd;
 
+    // allocazione array di inizio, da cui prendo le particelle
     cudaMalloc((void **)&xStart, sizeof(double) * numberBody);
     cudaMalloc((void **)&yStart, sizeof(double) * numberBody);
     cudaMalloc((void **)&mStart, sizeof(double) * numberBody);
@@ -136,12 +139,14 @@ void compute(int time)
     cudaMalloc((void **)&forceXStart, sizeof(double) * numberBody);
     cudaMalloc((void **)&forceYStart, sizeof(double) * numberBody);
 
+    // allocazione array dei risultati
     cudaMalloc((void **)&xEnd, sizeof(double) * numberBody);
     cudaMalloc((void **)&yEnd, sizeof(double) * numberBody);
     cudaMalloc((void **)&velXEnd, sizeof(double) * numberBody);
     cudaMalloc((void **)&velYEnd, sizeof(double) * numberBody);
     cudaMalloc((void **)&forceXEnd, sizeof(double) * numberBody);
     cudaMalloc((void **)&forceYEnd, sizeof(double) * numberBody);
+
     // copio array delle posizioni x e y delle particelle
     cudaMemcpy(xEnd, x, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
     cudaMemcpy(yEnd, y, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
@@ -150,47 +155,47 @@ void compute(int time)
     cudaMemcpy(velYEnd, velY, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
     cudaMemcpy(forceXEnd, forceX, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
     cudaMemcpy(forceYEnd, forceY, sizeof(double) * numberBody, cudaMemcpyHostToDevice);
-    // alloco le 4 posizioni iniziali della griglia
-    // setto array dei figli a -1 (null)
-    for(int i=0;i<time;i++){
-        
-        double* temp=xStart;
-        xStart=xEnd;
-        xEnd=temp;
 
-        temp=yStart;
-        yStart=yEnd;
-        yEnd=temp;
+    // avvio i calcoli e scambio gli array di inizio con quello di fine
+    for (int i = 0; i < time; i++)
+    {
+        double *temp = xStart;
+        xStart = xEnd;
+        xEnd = temp;
 
-        temp=velXStart;
-        velXStart=velXEnd;
-        velXEnd=temp;
+        temp = yStart;
+        yStart = yEnd;
+        yEnd = temp;
 
-        temp=velYStart;
-        velYStart=velYEnd;
-        velYEnd=temp;
+        temp = velXStart;
+        velXStart = velXEnd;
+        velXEnd = temp;
 
-        temp=forceXStart;
-        forceXStart=forceXEnd;
-        forceXEnd=temp;
+        temp = velYStart;
+        velYStart = velYEnd;
+        velYEnd = temp;
 
-        temp=forceYStart;
-        forceYStart=forceYEnd;
-        forceYEnd=temp;
+        temp = forceXStart;
+        forceXStart = forceXEnd;
+        forceXEnd = temp;
 
-        calculateTotalForce<<<block,thread,sizeof(double)*thread*3>>>(xStart,yStart,mStart,velXStart,velYStart,forceXStart,forceYStart,xEnd,yEnd,velXEnd,velYEnd,forceXEnd,forceYEnd,numberBody);
+        temp = forceYStart;
+        forceYStart = forceYEnd;
+        forceYEnd = temp;
+
+        calculateTotalForce<<<block, thread, sizeof(double) * thread * 3>>>(xStart, yStart, mStart, velXStart, velYStart, forceXStart, forceYStart, xEnd, yEnd, velXEnd, velYEnd, forceXEnd, forceYEnd, numberBody);
         cudaDeviceSynchronize();
-        
-                                                                                            //printf("\ncambio\n");
     }
 
-    cudaMemcpy(x ,xEnd, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
+    // copia finale dei risultati
+    cudaMemcpy(x, xEnd, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
     cudaMemcpy(y, yEnd, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
-    cudaMemcpy(velX, velXEnd,  sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
+    cudaMemcpy(velX, velXEnd, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
     cudaMemcpy(velY, velYEnd, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
     cudaMemcpy(forceX, forceXEnd, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
     cudaMemcpy(forceY, forceYEnd, sizeof(double) * numberBody, cudaMemcpyDeviceToHost);
 
+    // libero la memoria a fine programma
     cudaFree(xStart);
     cudaFree(yStart);
     cudaFree(mStart);
@@ -205,9 +210,6 @@ void compute(int time)
     cudaFree(velYEnd);
     cudaFree(forceXEnd);
     cudaFree(forceYEnd);
-    
-    
-
 }
 
 // popolo l'array con le particelle nel file
@@ -222,19 +224,14 @@ void getInput(FILE *file)
     forceX = (double *)malloc(sizeof(double) * numberBody);
     forceY = (double *)malloc(sizeof(double) * numberBody);
     // prendo i dati per tutti i corpi
-    printf("\n");
     for (int i = 0; i < numberBody; i++)
     {
         // prendo i dati dal file
-
         fscanf(file, "%lf%lf%lf%lf%lf", &x[i], &y[i], &m[i], &velX[i], &velY[i]);
-
         // imposto le forze iniziali a zero
         forceX[i] = 0;
         forceY[i] = 0;
-        printf("particle %d xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", i, x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
-    printf("\n");
     // chiudo il file
     fclose(file);
 }
@@ -246,22 +243,23 @@ FILE *initial()
     FILE *file = fopen(fileInput, "r");
     // prendo il seed
     fscanf(file, "%d", &seed);
-    printf("%d\n", seed);
     // prendo il numero di corpi
     fscanf(file, "%d", &numberBody);
-    printf("%d\n", numberBody);
     return file;
 }
 
-void printerFile(){
-    FILE* solution=fopen("solutionArray.txt","w");
+// stamap dei risultati su file
+void printerFile()
+{
+    FILE *solution = fopen("solutionArray.txt", "w");
     for (int i = 0; i < numberBody; i++)
     {
-        fprintf(solution,"%e,%e,%e,%e,%e,%e,%e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
+        fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
     fclose(solution);
 }
 
+// printer di debug
 void printer()
 {
     for (int i = 0; i < numberBody; i++)
@@ -269,6 +267,7 @@ void printer()
         printf("particle xPos= %e, yPos= %e, mass= %e, forceX= %e, forceY= %e, velX= %e, velY= %e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
     }
 }
+
 int main()
 {
     // apro il file dove si trovano tutte le particelle
@@ -278,11 +277,11 @@ int main()
 
     // calcolo il movimento delle particelle nel tempo richiesto
     compute(maxTime);
-    printf("\n");
-    
-    printerFile();
-    printer();
 
+    printerFile();
+    // printer(); // per debug
+
+    // libero la memoria
     free(x);
     free(y);
     free(m);
