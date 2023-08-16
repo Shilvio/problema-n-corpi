@@ -6,7 +6,7 @@
 
 // costanti e variabili host
 int maxCells, numberBody, seed, maxTime = 50;
-char fileInput[] = "../../Generate/particle.txt";
+char fileInput[] = "./particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 int error_h = 0;
 
@@ -864,7 +864,7 @@ void compute(int time)
 // stampa i risultati su file
 void printerFile()
 {
-    FILE *solution = fopen("solution.txt", "w");
+    FILE *solution = fopen("CUDA_Barnes-hut.txt", "w");
     for (int i = 0; i < numberBody; i++)
     {
         fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);
