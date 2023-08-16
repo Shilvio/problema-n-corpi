@@ -5,7 +5,7 @@
 #include <string.h>
 // numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 50;
-char fileInput[] = "../../Generate/particle.txt";
+char fileInput[] = "./particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
 double const THETA = 2;       // thetha per il calcolo delle forze su particell 0.75
 // dimensione bounding-box
@@ -460,7 +460,7 @@ void compute(particle *p1, int time)
 // funzione che stampa i risultati su file
 void printerFile(particle *p1)
 {
-    FILE *solution = fopen("solution.txt", "w");
+    FILE *solution = fopen("ST_Barnes-hut.txt", "w");
     for (int i = 0; i < numberBody; i++)
     {
         fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);

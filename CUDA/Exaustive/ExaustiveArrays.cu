@@ -5,7 +5,7 @@
 
 // numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 3;
-char fileInput[] = "../../Generate/particle.txt";
+char fileInput[] = "./particle.txt";
 // costante gravitazione universale
 __constant__ double G = 6.67384E-11;
 
@@ -251,7 +251,7 @@ FILE *initial()
 // stamap dei risultati su file
 void printerFile()
 {
-    FILE *solution = fopen("solutionArray.txt", "w");
+    FILE *solution = fopen("CUDA_Exaustive.txt", "w");
     for (int i = 0; i < numberBody; i++)
     {
         fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", x[i], y[i], m[i], forceX[i], forceY[i], velX[i], velY[i]);

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 // numero di corpi, seed di generazione, numero di iterazioni globali
 int numberBody, seed, maxTime = 5;
-char fileInput[] = "../../Generate/particle.txt";
+char fileInput[] = "./particle.txt";
 // costante di gravitazione universale
 double const G = 6.67384E-11;
 // numero di unità di tempo per ogni iterazione
@@ -70,7 +70,7 @@ void calculatePosition(particle *p, int time)
 // funzione che stampa i risultati su file
 void printerFile(particle *p1)
 {
-  FILE *solution = fopen("solution.txt", "w");
+  FILE *solution = fopen("MPI_Exaustive.txt", "w");
   for (int i = 0; i < numberBody; i++)
   {
     fprintf(solution, "%e,%e,%e,%e,%e,%e,%e\n", p1[i].x, p1[i].y, p1[i].mass, p1[i].forceX, p1[i].forceY, p1[i].velX, p1[i].velY);
