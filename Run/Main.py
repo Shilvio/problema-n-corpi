@@ -2,7 +2,7 @@
 import subprocess as sp
 import resource
 numberBody = 1
-for i in range(1):
+for i in range(4):
 
     numberBody *= 10
 
@@ -45,5 +45,5 @@ for i in range(1):
     # mpiTimerEndBH = resource.getrusage(resource.RUSAGE_CHILDREN)
     # mpiBarnesHutTime = mpiTimerEndBH.ru_utime - mpiTimerStartBH.ru_utime
 
-print("exaustive time : "+stExaustiveTime +
-      "barnes hut time : " + stBarnesHutTime)
+    print("exaustive time : %f" % stExaustiveTime +
+          " barnes hut time %f : " % stBarnesHutTime)
