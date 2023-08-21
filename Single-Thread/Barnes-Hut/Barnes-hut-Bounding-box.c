@@ -4,10 +4,10 @@
 #include <stdbool.h>
 #include <string.h>
 // numero di corpi, seed di generazione, numero di iterazioni globali
-int numberBody, seed, maxTime = 50;
+int numberBody, seed, maxTime = 5;
 char fileInput[] = "./particle.txt";
 double const G = 6.67384E-11; // costante gravitazione universale
-double const THETA = 2;       // thetha per il calcolo delle forze su particell 0.75
+double const THETA = 1;       // thetha per il calcolo delle forze su particell 0.75
 // dimensione bounding-box
 double up, down, left, right;
 // numero di unità di tempo per ogni iterazione

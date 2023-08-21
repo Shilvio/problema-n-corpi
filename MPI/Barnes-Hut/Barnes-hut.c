@@ -5,12 +5,12 @@
 #include <stdbool.h>
 #include <string.h>
 // numero di corpi, seed di generazione, numero di iterazioni globali
-int numberBody, seed, maxTime = 50;
+int numberBody, seed, maxTime = 5;
 char fileInput[] = "./particle.txt";
 // costante di gravitazione universale
 double const G = 6.67384E-11;
 // theta di approssimazione dell'algoritmo
-double const THETA = 2;
+double const THETA = 1;
 // numero di unità di tempo per ogni iterazione
 double const deltaTime = 1;
 

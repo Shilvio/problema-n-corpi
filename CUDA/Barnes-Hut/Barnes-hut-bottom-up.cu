@@ -5,7 +5,7 @@
 #include <string.h>
 
 // costanti e variabili host
-int maxCells, numberBody, seed, maxTime = 50;
+int maxCells, numberBody, seed, maxTime = 5;
 char fileInput[] = "./particle.txt";
 double *x, *y, *m, *velX, *velY, *forceX, *forceY;
 int error_h = 0;

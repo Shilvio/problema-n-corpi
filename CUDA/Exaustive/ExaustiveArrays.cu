@@ -4,7 +4,7 @@
 #include <math.h>
 
 // numero di corpi, seed di generazione, numero di iterazioni globali
-int numberBody, seed, maxTime = 3;
+int numberBody, seed, maxTime = 5;
 char fileInput[] = "./particle.txt";
 // costante gravitazione universale
 __constant__ double G = 6.67384E-11;
