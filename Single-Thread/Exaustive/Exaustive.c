@@ -134,7 +134,6 @@ int main()
 
     printerFile(p1);
 
-    fclose(file);
     free(p1);
     exit(1);
 }

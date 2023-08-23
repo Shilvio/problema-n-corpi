@@ -586,7 +586,6 @@ int main()
     // printerAlt(p1); // stampa su terminale
     printerFile(p1);
   }
-  fclose(file);
   free(p1);
 
   // ferma il programma mpi

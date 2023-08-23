@@ -202,7 +202,6 @@ int main()
     // printer(p1); // print per debug
     printerFile(p1);
   }
-  fclose(file);
   free(p1);
   // ferma il programma mpi
   MPI_Finalize();

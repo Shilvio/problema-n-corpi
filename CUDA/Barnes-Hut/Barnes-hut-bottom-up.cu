@@ -595,7 +595,6 @@ void getInput(FILE *file)
     forceY = (double *)malloc(sizeof(double) * numberBody);
 
     // prendo i dati per tutti i corpi
-    printf("\n");
     for (int i = 0; i < numberBody; i++)
     {
         // prendo i dati dal file
@@ -605,7 +604,6 @@ void getInput(FILE *file)
         forceX[i] = 0;
         forceY[i] = 0;
     }
-    printf("\n");
     // chiudo il file
     fclose(file);
 }
