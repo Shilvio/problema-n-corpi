@@ -10,7 +10,7 @@ char fileInput[] = "./particle.txt";
 // costante di gravitazione universale
 double const G = 6.67384E-11;
 // theta di approssimazione dell'algoritmo
-double const THETA = 1;
+double const THETA = 1.2;
 // numero di unità di tempo per ogni iterazione
 double const deltaTime = 1;
 

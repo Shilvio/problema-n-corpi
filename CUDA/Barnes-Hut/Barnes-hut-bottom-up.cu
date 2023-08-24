@@ -14,7 +14,7 @@ cudaDeviceProp pr;
 
 // costanti e variabili gpu
 __device__ const double G = 6.67384E-11; // costante gravitazione universale
-__device__ const double THETA = 2.0;     // theta per il calcolo delle forze su particell
+__device__ const double THETA = 1.2;     // theta per il calcolo delle forze su particell
 __device__ const int blockSize = 256;    // dimensione dei bocchi, usata per gestire le memorie shared
 __device__ int pPointer;                 // puntatore alla prima cella libera dell' array delle celle
 __device__ const int deltaTime = 1;      // delta time
@@ -617,7 +617,7 @@ FILE *initial()
     // prendo il numero di corpi
     fscanf(file, "%d", &numberBody);
     // calcolo max cell offset
-    maxCells = ((numberBody * 200 + 12000) * 5);
+    maxCells = ((numberBody * 50 + 12000) * 5);
     return file;
 }
 
