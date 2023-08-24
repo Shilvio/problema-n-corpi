@@ -3,7 +3,8 @@ import subprocess as sp
 import resource
 import random
 numberBody = 1
-times = [[], [], [], [], [], []]
+timesBody = [[], [], [], [], [], []]
+timeIter=[]
 for i in range(3):
 
     numberBody *= 10
@@ -33,6 +34,7 @@ for i in range(3):
 
         times[1].append(stBarnesHutTime)
 
+
         # CUDA chiamo script exaustive
         cudaTimerStartE = resource.getrusage(resource.RUSAGE_CHILDREN)
         sp.call(['../CUDA/Exaustive/ExaustiveArrays'])
@@ -49,6 +51,7 @@ for i in range(3):
         
         times[3].append(cudaBarnesHutTime)
 
+
         # MPI chiamo script Exaustive
         mpiTimerStartE = resource.getrusage(resource.RUSAGE_CHILDREN)
         sp.run(['mpiexec', '-n', '6', '../MPI/Exaustive/Exaustive'])
@@ -57,9 +60,7 @@ for i in range(3):
 
         times[4].append(mpiExaustiveTime)
         
-
-
-          # MPI chiamo script Barnes-hut
+        # MPI chiamo script Barnes-hut
         mpiTimerStartBH = resource.getrusage(resource.RUSAGE_CHILDREN)
         sp.run(['mpiexec', '-n', '6', '../MPI/Barnes-Hut/Barnes-hut'])
         mpiTimerEndBH = resource.getrusage(resource.RUSAGE_CHILDREN)
@@ -67,15 +68,26 @@ for i in range(3):
 
         times[5].append(mpiBarnesHutTime)
 
-    print("st exaustive:")
-    print(times[0])
-    print("st Barnes-hut:")
-    print(times[1])
-    print("Cuda exaustive:")
-    print(times[2])
-    print("Cuda Barnes-hut:")
-    print(times[3])
-    print("MPI exaustive:")
-    print(times[4])
-    print("MPI Barnes-hut:")
-    print(times[5])
+    timeIter.append(times)
+
+for bodys in timeIter:
+    count=0
+    for time in bodys:
+        temp=0
+        for exec in time:
+            temp+=exec
+        timesBody[count].append(temp/len(time))
+        count+=1
+
+print("st exaustive:")
+print(timesBody[0])
+print("st Barnes-hut:")
+print(timesBody[1])
+print("Cuda exaustive:")
+print(timesBody[2])
+print("Cuda Barnes-hut:")
+print(timesBody[3])
+print("MPI exaustive:")
+print(timesBody[4])
+print("MPI Barnes-hut:")
+print(timesBody[5])
