@@ -15,7 +15,7 @@ timeout_s = 20
 print()
 for i in range(bodyIterations):
 
-    numberBody *= 10
+    numberBody *= 100
 
     stE=True;stB=True
     cudaE=True;cudaB=True
