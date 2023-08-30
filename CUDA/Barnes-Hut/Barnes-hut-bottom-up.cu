@@ -617,7 +617,7 @@ FILE *initial()
     // prendo il numero di corpi
     fscanf(file, "%d", &numberBody);
     // calcolo max cell offset
-    maxCells = ((numberBody * 50 + 12000) * 5);
+    maxCells = ((numberBody * 30 + 12000) * 5);
     return file;
 }
 

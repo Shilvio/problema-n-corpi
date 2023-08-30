@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <math.h>
 int const NUMBER_BODY2 = 50;
-double const dim = 10000;
 double const mass = 5.000e+06;
 double const vel = 10;
 unsigned int seed = 0;
@@ -19,6 +18,8 @@ int main(int argc, char **argv)
         NUMBER_BODY = atoi(argv[1]);
         seed = atoi(argv[2]);
     }
+
+    double dim = NUMBER_BODY*100;
 
     FILE *file = fopen("particle.txt", "w");
     srand(seed);
