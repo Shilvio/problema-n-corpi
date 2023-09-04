@@ -59,16 +59,82 @@ Una volta calcolati i centri di massa si passa al calcolo delle forze che agisco
   
 Il calcolo delle forze delle partielle procede con le stesse formule del metodo naive, ma riducendo i calcoli usando la massa dei centri di massa al posto delle varie masse delle altre particelle, i centri di massa da utilizzare vengono scelti in base al filtro del **θ**, riducendo l' accesso all' albero e quindi la quantità di calcoli per paritcella, per ogni particella.
 
+# Generatore di particelle e testing degli algoritmi
+
+## Funzione generate
+
+Per facilitare l'approccio di testing ed eventuali casi limite è stata generata una funzione che stampa su un file di testo delle particelle permettendo quindi di creare un numero esatto e variabile di particelle, con masse, posizioni e velocità randomiche e replicabili attraverso un seed. tutti i parametri utili alla funzione (numero di particelle da generare e seed), vengono imposti come argomenti dal main o gestiti internamente da codice.
+
+## Main
+
+La funzione main esegue i test sugli algoritmi implementati, utilizzando Subprocess per misurare in maniera precisa i tempi di esecuzione di quest'ultimi. 
+
+Ad ogni esecuzione viene generato un set di particelle comune a tutti gli algoritmi.
+Si parte da 10 particelle, che aumentano di 10 volte a ogni iterazione.
+
+Ogni algoritmo viene eseguito più volte (scelte da utente), con seed diverso, calcolando la media delle tempistiche sui diversi input di stesso numero di particelle.
+
+Successivamente l'algoritmo genera un grafico che mostra le prestazioni, mettendo a confronto le tempistiche medie generate.
+
+## Compare
+
+Per verificare la coerenza degli algoritmi generati, è stata scritta una funzione di comparazione degli output, utile solo in fase di debug.
+Una tra le problematiche riscontrate durante la creazione dell'algoritmo di comparazione è causata da una diversa approssimazione dei calcoli prodotti dagli algoritmi dipendeni dalla gpu (CUDA), per quanto riguarda i calcoli con virgola mobile.
+
+Fonte ufficiale:
+https://docs.nvidia.com/cuda/floating-point/index.html
 
 # Implementazione seriale
 
 ## Metodo Naive
 
+L' implementazione seriale del **metodo naive** utilizza uno struct di particelle, ogni particella contiene informazioni sulla **massa**, **posizione**, la **forza applicata** alla particella e **velocità** della stessa, questi ultimi tre parametri vengono suddivisi tra gli **assi x e y**.
+Ogni particella viene inserita in un array di lungezza: numero di particelle. 
+La forza di ogni particella a inizio simulazione viene inizializzata a 0.
+
+L' algoritmo procede ad **intervalli di tempo**, per ognuno di essi si eseguono 2 funzioni:
+- **Calcolo delle forze**
+  
+- **Calcolo delle posizioni**
+
+La prima funzione confronta una particella con le altre, ad esclusione di se stessa, per calcolare le forze su asse x e y utilizzando la formula descritta nell' introduzione. 
+Viene ripetuta per tutte le particelle.
+
+La funzione del **calcolo delle posizioni** calcola la posizione e la velocità di una particella, essendo questi parametri direttamente infuenzati dalle forze sono calcolate dopo l'esecuzione della funzione precedente, anche questo metodo viene ripetuto per ogni particella.
+
+l'Algoritmo termina stampando su un file di testo:
+**posizione, massa, forza** e **velocità** di ogni particella.
 
 
 ## Algoritmo di Barnes-Hut
 
 
+Anche l'implementazione seriale dell'algoritmo di Barnes-Hut sfrutta lo stesso struct di particelle, descritto nel metodo Naive, con aggiunta di 2 struct:
+- **Centri di massa**: 
+contiene la posizione x,y e la massa del centro di massa.
 
+- **Albero**: 
+contiene i suoi limiti superiore, inferiore, destro e sinistro (up, down, left, right), un puntatore a una particella, un puntatore al centro di massa, un booleano che indica se si tratta di una foglia o meno e i puntatori ai suoi sottonodi.
 
-## Fonti:
+L'algoritmo come per il seriale procede a intervalli di tempo, ad ogni intervallo:
+
+- Usando la funzione **boundingBox** si calcolano le dimensioni spaziali massime necessarie a contenere tutte le particelle.
+
+- Tali dimensioni vengono passate come parametri globali e usati dalla funzione **initialQuad** per inizializzare l'albero creando la radice.
+
+- Le particelle vengono passate alla funzione **insert**, ricorsiva, che procederà a inserirle all'interno dell'albero e a dividere quest'ultimo in quadranti.
+  
+- **centerMass** calcola i centri di massa per tutti i nodi dell'albero, successivamente **treeForce** approssima le forze applicate alle particelle, in seguito **calculatePosition** calcola le posizioni delle particelle.
+
+- Viene distrutto l'albero.
+
+Anch'esso terminerà stampando su file il risultato.
+
+# Implementazione CUDA
+
+# Valutazione algoritmi
+## Tempistiche
+## Grafici
+## Considerazioni
+# Fonti:
+https://docs.nvidia.com/cuda/floating-point/index.html
