@@ -132,6 +132,32 @@ Anch'esso terminerà stampando su file il risultato.
 
 # Implementazione CUDA
 
+  Le logiche di esecuzione tra l'approccio CUDA e quello seriale saranno simili, vengono quindi elencate eventuali differenze di progettazione per il riadattamento al calcolo da GPU.
+
+  Per entrambi algoritmi viene controllata la presenza di una GPU nvidia nel sistema e calcolate le relative dimensioni dei blocchi di CUDA-Cores a disposizione.
+
+  In caso di mancata presenza di una GPU supportata, il programma terminerà con errore.
+  ## Metodo Naive
+
+  A differenza dell'approccio seriale, i dati delle particelle vengono inseriti in multipli **array**, tale struttura più semplice il trasferimento dei dati da Memoria di sistema, a memoria globale della GPU, e ottimizza le operazioni di trasferimento dei dati tra quest'ultima e la memoria condivisa dei blocchi.
+  L' algoritmo funziona come segue:
+  - Ad ogni particella presa in input, viene assegnato un **id**, da 0 al numero di particelle - 1, questo id determina nei vari array, la posizione per i dati da inserire della particella (**posizione x e y,massa, forza x e y, velocita x e y**)
+  - vengono caricati gli array sulla memoria globale della GPU e ad ogni particella viene assegnato un thread.
+  - 
+
+
+
+  ## Algoritmo di Barnes-Hut
+
+# Implementazione MPI
+  ## Metodo Naive
+
+  
+
+
+  ## Algoritmo di Barnes-Hut
+
+
 # Valutazione algoritmi
 ## Tempistiche
 ## Grafici
