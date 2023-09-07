@@ -140,27 +140,83 @@ Anch'esso terminerà stampando su file il risultato.
   ## Metodo Naive
 
   A differenza dell'approccio seriale, i dati delle particelle vengono inseriti in multipli **array**, tale struttura più semplice il trasferimento dei dati da Memoria di sistema, a memoria globale della GPU, e ottimizza le operazioni di trasferimento dei dati tra quest'ultima e la memoria condivisa dei blocchi.
+
   L' algoritmo funziona come segue:
   - Ad ogni particella presa in input, viene assegnato un **id**, da 0 al numero di particelle - 1, questo id determina nei vari array, la posizione per i dati da inserire della particella (**posizione x e y,massa, forza x e y, velocita x e y**)
   - vengono caricati gli array sulla memoria globale della GPU e ad ogni particella viene assegnato un thread.
-  - 
-
-
-
+  - Ogni blocco carica nella memoria condivisa una porzione degli array, pari al numero di thread che gli sono stati assegnati, così da renderli condivisibili al suo interno, finiti i calcoli da parte di ogni thread viene caricata la sezione di particelle successiva.
+  - Ogni thread eseguirà i calcoli tra la particella assegnatagli e una per una tutte quelle presenti nella memoria condivisa.
+  - Eseguiti i calcoli di forze e posizioni di ogni particella, verranno riportati in vari array dei risultati in memoria globale e sostituiti con quelli iniziali, per l'esecuzione del prossimo intervallo di tempo.
+  - Alla fine degli intervalli di tempo, i risultati vengono riportati dalla memoria globale della GPU a quella di sistema, per essere stampati in un file di output.
   ## Algoritmo di Barnes-Hut
 
+  Anche in questo caso sono state apportate modifiche per la parellilazione, la struttura delle particelle è la stessa ad "array" del metodo naive, viene creato però un altro array che rappresenta i nodi dell'albero:
+
+  - Come per la versione seriale, viene calcolata un' area di esecuzione (**bounding-box**), in questo caso, il calcolo viene parallelizzato in riduzione.
+
+  - Viene creato un array (**child**, da codice), che come anche gli altri ha dimensione, dato **N** come numero di particelle: 
+   $$(N * 30 + 12000) * 5$$
+  - I valori riportati dalla funzione indicano in maniera probabilistica la possibile dimensione massima dell' albero, garantendo un overhead di sicurezza e evitando l'uso di liste dinamiche gli array che utilizzano queste dimensioni sono: child (array dell'albero), x (posizioni x), y (posizioni y), mass (masse di particelle e centri di massa)
+  - gli array di queste dimensioni si dividono in 2 aree, da posizione 0 a N-1 rappresentano le particelle, da N fino al valore designato, rappresentano i dati dell' albero e relativi centri di massa
+  - il modo in cui vengo rappresentati i nodi e relativi dati negli array tra le posizioni maggiori di N, si basa sulle 5 variabili che necissità ogni nodo, occupanmdo così 5 caselle nell'array che contengono:
+    - Id del padre.
+    - Figlio del quadrante **nord-ovest**.
+    - Figlio del quadrante **sud-ovest**.
+    - Figlio del quadrante **nord-est**.
+    - Figlio del quadrante **sud-est**. Il numero di questa cella rappresenta anche l'Id del nodo corrente. 
+  - Si prosegue creando l'albero in maniera parallela, utilizzando un'operazione di compare and swap per prevenire la concorrenza, inoltre, per aumentarne l'efficenza il una volta genearato un figlio del nodo corrente, se non più utile al thread che lo sta gestendo, viene liberato per poter essere utilizzato da un altro thread.
+  - L'algoritmo snocciola l'albero a partire dalle particelle  (child da 0 a N), che a differenza del seriale, poichè tengono conto del quadrante assegnatogli, rappresentano le foglie dell' albero e per evitare rallentamenti nel codice: 
+      - Un thread a parire dalla foglia calcola il centro di massa di ogni nodo padre, risalendo l'albero.
+      - In caso non gli fosse possibile calcolare il centro di massa per mancanza di dati (che aspetta di ricevere da un altro thread), terminerà lasciando il lavoro di calcolo al prossimo thread che sicuramente visita il nodo.
+- Calcolati i centri massa, si passa a calcolare le forze, ogni thread calcola le forze su una sola particella, scendendo e risalendo l'albero usando il puntatore al padre e calcolando le rispettive forze usando il valore theta designato.
+- Il calcolo della posizione e delle velocità prosegue come il calcolo delle forze.
+- Al fine di tutto vengono riportati i risultati e resettati gli array (il processo di reset degli array nel codice, per convenienza, viene inserita come prima operazione, non cambia la logica di funzionamento) .
+
+Finiti i timestep verrano riportati i risultati in memoria principale e stampati in output, e liberata la memoria.
 # Implementazione MPI
+
+  Per quanto riguarda l'implementaione con MPI, si ritorna all'utilizzo degli struct, poiche MPI fornisce la possibilità di creare tipi di dato personalizzati per la libreria e il successivo parsing di essi.
   ## Metodo Naive
 
+  Il metodo naive in questo caso, è simile nel ragionamento all'implementazione seriale, utilizza un solo core (0) per leggere il file di input e comunicare i dati tra i vari core in **broadcast** (MPI_Broadcast). Per ogni unità di tempo:
+  - Ogni core, tramite un calcolo fatto sà quante e quali particelle dovrà elaborare.
+  - vengono eseguiti i calcoli di forza e spostamento, con funzioni analoghe all'implementazione seriale, che verranno comunicati broadcast una volta che tutti i core hanno finito i propri calcoli e si siano sincronizzati.
   
-
-
+  alla fine il core master (0) stamperà in output i risultati della simulazione.
   ## Algoritmo di Barnes-Hut
 
+  Come per il metodo Naive MPI, anche in questo caso l'implementazione segue un ragionamento simile a quello seriale, i dati vengono passati allo stesso modo di come è stato spiegato in precedenza, l'algoritmo, sempre ad intervalli di tempo prosegue:
+  - Calcolando le dimensiooni di lavoro (**bounding-box**) utilizzando una riduzione (MPI_Allreduce).
+  - Ogni core costruisce un albero delle profondità assegnando tutte le particelle e i rispettivi centri di massa.
+  - Come nel metodo naive MPI vengono assegnate e calcolate le forze e spostamento approssimandole con il tetha, solo di determinate particelle.
+  - Viene comunicato il risultato in broadcast e distrutto l'albero.
+  
+  Alla fine delle unità di tempo il core master (0) stamperà i risultati in output.
+# Valutazione algoritmi e scelte progettuali
 
-# Valutazione algoritmi
+  La parte di lettura degli input, per convenienza di elaborazione, viene tenuta seriale, per tutte le implementazioni, data l'incapacità di CUDA di poter leggere un file di input in parallelo.
+  ## Implementazione CUDA Naive
+
+  In questo caso la parallelizzazione avviene per tutte le fasi di calcolo dell'algoritmo.
+  ## Implementazione CUDA di Barnes-Hut 
+
+  L'algoritmo viene parallelizzato completamente in tutte le sue fasi di calcolo e creazione dell'albero.
+  ## Implementazione MPI Naive
+
+  L' algoritmo viene completamente parallelizzato, come anche l'implementazione di barnes hut, una causa di problemi prestazionali è quella dell overhead di comunicazioni che vengono effettuate.
+  ## Implementazione MPI di Barnes-Hut 
+
+  L'alrgotmo parallelizza la costruzione della bounding box, ma non quella dell'albero, teorizzando che richiederebbe un overhead di comunicazione molto elevato, rendendo ancor meno efficente l'algoritmo.
+  le restanti funzioni vengono parallelizzate come col metodo naive, ma mantendo l'approssimazione con la distanza tramite theta.
+
+
+
+
 ## Tempistiche
 ## Grafici
 ## Considerazioni
 # Fonti:
-https://docs.nvidia.com/cuda/floating-point/index.html
+
+
+
+Problema di approssimazione in CUDA: https://docs.nvidia.com/cuda/floating-point/index.html
