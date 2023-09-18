@@ -217,10 +217,58 @@ L' algoritmo viene completamente parallelizzato, come anche l'implementazione di
 L'alrgotmo parallelizza la costruzione della bounding box, ma non quella dell'albero, teorizzando che richiederebbe un overhead di comunicazione molto elevato, rendendo ancor meno efficente l'algoritmo.
 le restanti funzioni vengono parallelizzate come col metodo naive, ma mantendo l'approssimazione con la distanza tramite theta.
 
-## Tempistiche
+# Tempistiche
 
+  | N bodies 	|    St Naive   	|     St B-H    	|   CUDA Naive  	|    CUDA B-H   	|   MPI Naive   	|    MPI B-H    	|
+  |:--------:	|:-------------:	|:-------------:	|:-------------:	|:-------------:	|:-------------:	|:-------------:	|
+  |    10    	|  4,9 x 10^-4  	| 4,196 x 10^-4 	| 4,786 x 10^-3 	| 6,256 x 10^-3 	| 6,855 x 10^-2 	| 6,332 x 10^-2 	|
+  |    100   	| 1,168 x 10^-3 	| 1,079 x 10^-3 	| 9,541 x 10^-3 	| 1,169 x 10^-3 	| 6,707 x 10^-2 	| 7,199 x 10^-2 	|
+  |   1000   	| 6,906 x 10^-2 	| 1,217 x 10^-2 	| 3,791 x 10^-2 	| 2,091 x 10^-2 	| 1,941 x 10^-1 	| 1,129 x 10^-1 	|
+  |   10000  	|     6,568     	| 1,602 x 10^-1 	| 3,118 x 10^-1 	| 1,525 x 10^-1 	|     7,269     	| 6,133 x 10^-1 	|
+  |  100000  	|    > 2 min    	|     2,522     	|     8,194     	|     3,231     	|     70,567    	|     7,830     	|
+  |  1000000 	|    > 2 min    	|     39,821    	|    > 2 min    	|     21,705    	|    > 2 min    	|    108,647    	|
+
+  ## Signle thread
+  <img title="single thread" alt="grafico single thread" src="Graphs/single-thread.png">
+  
+  Come previsto barnes-hut riesce a sopravvalere sull'implementazione naive a partire già da 10^2, verrà usato come grafico di confronto per le altre implementazioni.
+  ## CUDA
+  <img title="CUDA" alt="grafico CUDA" src="Graphs/cuda.png">
+  
+  L'implementazione di Barnes-Hut è ovviamente la più performante.
+  L'Implementazione barnes-hut diventa piu efficiente rispetto al metodo Naive superando i 10^2 corpi, come per il single thread.
+
+  ## MPI
+  <img title="MPI" alt="grafico MPI" src="Graphs/MPI.png">
+  
+   Anche qui l'implementazione Barnes-Hut comincia a prevalere sul metodo Naive una volta superati i 10^2 corpi.
+
+  ## Naive
+  <img title="Naive" alt="grafico Naive" src="Graphs/exaustive.png">
+  
+  L'implementazione CUDA e MPI del metodo Naive sono piu lente inizialmente a causa delle chiamate alle rispettive librerie, con Cuda che prevale su MPI a prescindere dal numero di corpi.
+  A partire da 10^3 corpi, l'implementazione CUDA è più efficente del implementa Naive.
+  MPI d'altro canto per quanto migliori in tempistiche per 10^4 corpi, con probabile ulteriore miglioramento successivo, risulta essere poco efficace allo svolgimento del problema, per via delle eccessive comunicazioni.
+
+  ## Barnes-Hut
+  <img title="Barnes-Hut" alt="grafico barnes-hut" src="Graphs/barnes-hut.png">
+  
+  Per quanto riguarda Barnes-Hut i test dimostrano che i risultati sono simili a quanto espresso prima.
+  Anche se molto efficente l'implementazione effettuata con CUDA, in casi particolari potrebbe risultare in alberi di profondità elevata, che vanno a peggiorare notevolmente le performance. 
+  Di fatto l'algoritmo che dovrebbe superare in efficenza l'implementazione Single-Thread da 10^4 corpi in poi, invece rallenta nell'esecuzione successiva e torna alle performance osservate con 10^6 corpi.
+  MPI, causa i problemi sopra riportati risulta il meno performante.
 ## Considerazioni
-
+  
+  MPI data la mole di dati da comunicare tra tutti i processori, dimostra di essere estremamente inefficente per l'applicazione di questo problema, in particolare, con Barnes-Hut è stato impossibile rendere parallela ed efficente la creazione dell'albero.
 # Fonti:
 
 Problema di approssimazione in CUDA: https://docs.nvidia.com/cuda/floating-point/index.html
+
+An efficient CUDA implementation of N-Body problem: https://iss.oden.utexas.edu/Publications/Papers/burtscher11.pdf
+
+Parallel-Programming book by Peter Pacheco: ISBN-10:0123742609
+
+N-Body problem explanation: https://patterns.eecs.berkeley.edu/?page_id=193#Barnes_Hut
+
+
+
