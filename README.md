@@ -238,6 +238,18 @@ Le restanti funzioni vengono parallelizzate come col metodo naive, ma mantendo l
   |  100000  	|    > 2 min    	|     2,522     	|     8,194     	|     3,231     	|     70,567    	|     7,830     	|
   |  1000000 	|    > 2 min    	|     39,821    	|    > 2 min    	|     21,705    	|    > 2 min    	|    108,647    	|
 
+
+  ## Speed-up
+
+  | N bodies 	|   CUDA Naive  	|    CUDA B-H   	|   MPI Naive   	|    MPI B-H    	|
+  |:--------:	|:-------------:	|:-------------:	|:-------------:	|:-------------:	|
+  |    10    	| 1,023 x 10^-1 	| 6,707 x 10^-2 	| 7,147 x 10^-3 	| 6,626 x 10^-3 	|
+  |    100   	| 1,224 x 10^-1 	| 9,232 x 10^-2 	| 1,741 x 10^-2 	| 1,499 x 10^-2 	|
+  |   1000   	|      1,821      | 5,818 x 10^-1 	| 3,557 x 10^-1 	| 1,078 x 10^-1 	|
+  |   10000  	|     21,065     	|      1,050     	| 9,036 x 10^-1 	| 2,611 x 10^-1 	|
+  |  100000  	|    > 2 min    	|  7,804 x 10^-1 	|    > 2 min    	| 3,220 x 10^-1  	|
+  |  1000000 	|    > 2 min    	|      1,835   	  |    > 2 min    	| 3,665 x 10^-1   |
+
   ## Signle thread
   <img title="single thread" alt="grafico single thread" src="Graphs/single-thread.png">
   
@@ -270,6 +282,7 @@ Le restanti funzioni vengono parallelizzate come col metodo naive, ma mantendo l
 ## Considerazioni
   
   MPI data la mole di dati da comunicare tra tutti i processori, dimostra di essere estremamente inefficiente per l'applicazione di questo problema, in particolare con Barnes-Hut è stato impossibile parallelizzare la creazione dell'albero.
+
 # Fonti:
 
 Problema di approssimazione in CUDA: https://docs.nvidia.com/cuda/floating-point/index.html
